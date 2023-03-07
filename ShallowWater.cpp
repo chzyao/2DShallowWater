@@ -7,8 +7,23 @@
 
 using namespace std;
 
-void ShallowWater::SetInitialConditions()
+ShallowWater::ShallowWater()
 {
+}
+
+ShallowWater::ShallowWater(double dt, double T, int Nx, int Ny, int ic)
+{
+}
+
+ShallowWater::~ShallowWater()
+{
+}
+
+
+void ShallowWater::SetInitialConditions(int ic)
+{
+    
+
 
 }
 

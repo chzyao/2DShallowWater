@@ -5,9 +5,10 @@ class ShallowWater
 {
 
 public:
+    ShallowWater(); // default constructor
     ShallowWater(double dt, double T, int Nx, int Ny, int ic);
     ~ShallowWater();
-    void SetInitialConditions();
+    void SetInitialConditions(int ic);
     void TimeIntegrate();
 
 
@@ -16,16 +17,12 @@ private:
     double u;
     double v;
     double h;
+    double t;
+
 
 };
 
-ShallowWater::ShallowWater(double dt, double T, int Nx, int Ny, int ic)
-{
-}
 
-ShallowWater::~ShallowWater()
-{
-}
 
 
 
