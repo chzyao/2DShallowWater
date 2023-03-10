@@ -10,7 +10,21 @@
 using namespace std;
 namespace po = boost::program_options;
 
-void SetInitialConditions(double *u, double *v, double *h, double *g, int Nx, int Ny, int ic, double dx, double dy)
+void printMatrix(int Nx, int Ny, double *A)
+{
+    for (int i = 0; i < Nx; i++)
+    {
+        for (int j = 0; j < Ny; j++)
+        {
+            cout << A[i * Nx + j] << "  ";
+        }
+        cout << endl;
+    }
+}
+
+
+void SetInitialConditions(double *u, double *v, double *h, double *g, int Nx,
+                          int Ny, int ic, double dx, double dy)
 {
     for (int i = 0; i < Nx; ++i)
     {
@@ -29,11 +43,18 @@ void SetInitialConditions(double *u, double *v, double *h, double *g, int Nx, in
             }
             else if (ic == 3)
             {
-                g[i * Nx + j] = exp(-((i * dx - 50) * (i * dx - 50) + (j * dy - 50) * (j * dy - 50)) / 25.0);
+                g[i * Nx + j] = exp(
+                    -((i * dx - 50) * (i * dx - 50) + (j * dy - 50) * (j * dy - 50)) /
+                    25.0);
             }
             else
             {
-                g[i * Nx + j] = exp(-((i * dx - 25) * (i * dx - 25) + (j * dy - 25) * (j * dy - 25)) / 25.0) + exp(-((i * dx - 75) * (i * dx - 75) + (j * dy - 75) * (j * dy - 75)) / 25.0);
+                g[i * Nx + j] = exp(-((i * dx - 25) * (i * dx - 25) +
+                                      (j * dy - 25) * (j * dy - 25)) /
+                                    25.0) +
+                                exp(-((i * dx - 75) * (i * dx - 75) +
+                                      (j * dy - 75) * (j * dy - 75)) /
+                                    25.0);
             }
         }
     }
@@ -53,7 +74,11 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
         {
             for (int j = 0; j < Ny; ++j)
             {
-                deriv[i * Nx + j] = px * (-u[(i - 3) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(i - 2) * Nx + j] - 3.0 / 4.0 * u[(i - 1) * Nx + j] + 3.0 / 4.0 * u[(i + 1) * Nx + j] - 3.0 / 20.0 * u[(i + 2) * Nx + j] + u[(i + 3) * Nx + j] / 60.0);
+                deriv[i * Nx + j] =
+                    px *
+                    (-u[(i - 3) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(i - 2) * Nx + j] -
+                     3.0 / 4.0 * u[(i - 1) * Nx + j] + 3.0 / 4.0 * u[(i + 1) * Nx + j] -
+                     3.0 / 20.0 * u[(i + 2) * Nx + j] + u[(i + 3) * Nx + j] / 60.0);
             }
         }
     }
@@ -65,13 +90,18 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
         {
             for (int j = 0; j < Ny; ++j)
             {
-                deriv[i * Nx + j] = py * (-u[i * Nx + j - 3] / 60.0 + 3.0 / 20.0 * u[i * Nx + j - 2] - 3.0 / 4.0 * u[i * Nx + j - 1] + 3.0 / 4.0 * u[i * Nx + j + 1] - 3.0 / 20.0 * u[i * Nx + j + 2] + u[i * Nx + j + 3] / 60.0);
+                deriv[i * Nx + j] =
+                    py *
+                    (-u[i * Nx + j - 3] / 60.0 + 3.0 / 20.0 * u[i * Nx + j - 2] -
+                     3.0 / 4.0 * u[i * Nx + j - 1] + 3.0 / 4.0 * u[i * Nx + j + 1] -
+                     3.0 / 20.0 * u[i * Nx + j + 2] + u[i * Nx + j + 3] / 60.0);
             }
         }
     }
 }
 
-void Evaluate_fu(double *u, double *v, double *h, double *g, int Nx, int Ny, double dx, double dy, double *f)
+void Evaluate_fu(double *u, double *v, double *h, double *g, int Nx, int Ny,
+                 double dx, double dy, double *f)
 {
     double *deriux = new double[Nx * Ny];
     double *deriuy = new double[Nx * Ny];
@@ -85,7 +115,9 @@ void Evaluate_fu(double *u, double *v, double *h, double *g, int Nx, int Ny, dou
     {
         for (int j = 0; j < Ny; ++j)
         {
-            f[i * Nx + j] = -u[i * Nx + j] * deriux[i * Nx + j] - v[i * Nx + j] * deriuy[i * Nx + j] - g[i * Nx + j] * derihx[i * Nx + j];
+            f[i * Nx + j] = -u[i * Nx + j] * deriux[i * Nx + j] -
+                            v[i * Nx + j] * deriuy[i * Nx + j] -
+                            g[i * Nx + j] * derihx[i * Nx + j];
         }
     }
 
@@ -94,7 +126,8 @@ void Evaluate_fu(double *u, double *v, double *h, double *g, int Nx, int Ny, dou
     delete[] derihx;
 }
 
-void Evaluate_fv(double *u, double *v, double *h, double *g, int Nx, int Ny, double dx, double dy, double *f)
+void Evaluate_fv(double *u, double *v, double *h, double *g, int Nx, int Ny,
+                 double dx, double dy, double *f)
 {
     double *derivx = new double[Nx * Ny];
     double *derivy = new double[Nx * Ny];
@@ -108,7 +141,9 @@ void Evaluate_fv(double *u, double *v, double *h, double *g, int Nx, int Ny, dou
     {
         for (int j = 0; j < Ny; ++j)
         {
-            f[i * Nx + j] = -u[i * Nx + j] * derivx[i * Nx + j] - v[i * Nx + j] * derivy[i * Nx + j] - g[i * Nx + j] * derihy[i * Nx + j];
+            f[i * Nx + j] = -u[i * Nx + j] * derivx[i * Nx + j] -
+                            v[i * Nx + j] * derivy[i * Nx + j] -
+                            g[i * Nx + j] * derihy[i * Nx + j];
         }
     }
 
@@ -117,7 +152,8 @@ void Evaluate_fv(double *u, double *v, double *h, double *g, int Nx, int Ny, dou
     delete[] derihy;
 }
 
-void Evaluate_fh(double *u, double *v, double *h, double *g, int Nx, int Ny, double dx, double dy, double *f)
+void Evaluate_fh(double *u, double *v, double *h, double *g, int Nx, int Ny,
+                 double dx, double dy, double *f)
 {
     double *derihux = new double[Nx * Ny];
     double *derihvy = new double[Nx * Ny];
@@ -151,18 +187,141 @@ void Evaluate_fh(double *u, double *v, double *h, double *g, int Nx, int Ny, dou
     delete[] hv;
 }
 
-void TimeIntegrate(double *yn, double dt, int Nx, int Ny)
+void TimeIntegration(double *u, double *v, double *h, double *g, int Nx, int Ny,
+                     double dx, double dy, double dt, double T, double *fu,
+                     double *fv, double *fh)
 {
-    double *k1 = new double[Nx * Ny];
-    double *k2 = new double[Nx * Ny];
-    double *k3 = new double[Nx * Ny];
-    double *k4 = new double[Nx * Ny];
+    // Solving for u
+    double *k1_u = new double[Nx * Ny];
+    double *k2_u = new double[Nx * Ny];
+    double *k3_u = new double[Nx * Ny];
+    double *k4_u = new double[Nx * Ny];
+
+    // Solve for v
+    double *k1_v = new double[Nx * Ny];
+    double *k2_v = new double[Nx * Ny];
+    double *k3_v = new double[Nx * Ny];
+    double *k4_v = new double[Nx * Ny];
+
+    // Solve for h
+    double *k1_h = new double[Nx * Ny];
+    double *k2_h = new double[Nx * Ny];
+    double *k3_h = new double[Nx * Ny];
+    double *k4_h = new double[Nx * Ny];
+
+    double *tu = new double[Nx * Ny]; // temp vector t = u
+    double *tv = new double[Nx * Ny]; // temp vector t = u
+    double *th = new double[Nx * Ny]; // temp vector t = u
+
+    // Calculating k1 = f(yn) ===================================
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1);
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+
+    Evaluate_fu(u, v, h, g, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(u, v, h, g, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(u, v, h, g, Nx, Ny, dx, dy, fh);
+
+    cblas_dcopy(Nx * Ny, fu, 1, k1_u, 1);
+    cblas_dcopy(Nx * Ny, fv, 1, k1_v, 1);
+    cblas_dcopy(Nx * Ny, fh, 1, k1_h, 1);
+
+    // Calculating k2 = f(yn + dt*k1/2) ==========================
+    // reset temp values
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+
+    // update un to un+dt*k1/2 to evaluate f for k2
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
+
+    // Evaluate new f
+    Evaluate_fu(tu, v, h, g, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tv, v, h, g, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(th, v, h, g, Nx, Ny, dx, dy, fh);
+
+    cblas_dcopy(Nx * Ny, fu, 1, k2_u, 1);
+    cblas_dcopy(Nx * Ny, fv, 1, k2_v, 1);
+    cblas_dcopy(Nx * Ny, fh, 1, k2_h, 1);
+
+    // Calculating k3 = f(yn+dt*k2/2) =============================
+    // reset temp values
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+
+    // update un to un+dt*k2/2 to evaluate f for k3
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
+
+    Evaluate_fu(tu, v, h, g, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tv, v, h, g, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(th, v, h, g, Nx, Ny, dx, dy, fh);
+
+    cblas_dcopy(Nx * Ny, fu, 1, k3_u, 1);
+    cblas_dcopy(Nx * Ny, fv, 1, k3_v, 1);
+    cblas_dcopy(Nx * Ny, fh, 1, k3_h, 1);
+
+    // k4 = f(yn+dt*k3) ===========================================
+    // reset temp values
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+
+    // update un to un+dt*k2/2 to evaluate f for k3
+    cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
+
+    Evaluate_fu(tu, v, h, g, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tv, v, h, g, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(th, v, h, g, Nx, Ny, dx, dy, fh);
+
+    cblas_dcopy(Nx * Ny, fu, 1, k4_u, 1);
+    cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
+    cblas_dcopy(Nx * Ny, fh, 1, k4_h, 1);
+
+    // Time advancement
+    double time = 0.0; // start time
+    while (time <= T)
+    {
+        // 1/6*(k1+2*k2+2*k3+k4)*dt
+        for (int i = 0; i < Nx; ++i)
+        {
+            for (int j = 0; j < Ny; ++j)
+            {
+                u[i * Nx + j] += dt / 6.0 *
+                                 (k1_u[i * Nx + j] + 2.0 * k2_u[i * Nx + j] +
+                                  2.0 * k3_u[i * Nx + j] + k4_u[i * Nx + j]);
+                v[i * Nx + j] += dt / 6.0 *
+                                 (k1_v[i * Nx + j] + 2.0 * k2_v[i * Nx + j] +
+                                  2.0 * k3_v[i * Nx + j] + k4_v[i * Nx + j]);
+                h[i * Nx + j] += dt / 6.0 *
+                                 (k1_h[i * Nx + j] + 2.0 * k2_h[i * Nx + j] +
+                                  2.0 * k3_h[i * Nx + j] + k4_h[i * Nx + j]);
+            }
+        }
+        time += dt;
+    }
 
     // deallocate memory
-    delete[] k1;
-    delete[] k2;
-    delete[] k3;
-    delete[] k4;
+    delete[] k1_u;
+    delete[] k2_u;
+    delete[] k3_u;
+    delete[] k4_u;
+
+    delete[] k1_v;
+    delete[] k2_v;
+    delete[] k3_v;
+    delete[] k4_v;
+
+    delete[] k1_h;
+    delete[] k2_h;
+    delete[] k3_h;
+    delete[] k4_h;
 }
 
 int main(int argc, char *argv[])
@@ -172,11 +331,9 @@ int main(int argc, char *argv[])
     po::options_description options("Available Options.");
     options.add_options()("help", "Display help message")(
         "dt", po::value<double>()->default_value(0.1), "Time-step to use")(
-        "T", po::value<double>()->default_value(20.0),
-        "Total integration time")("Nx", po::value<int>()->default_value(100),
-                                  "Number of grid points in x")(
-        "Ny", po::value<int>()->default_value(100),
-        "Number of grid points in y")(
+        "T", po::value<double>()->default_value(20.0), "Total integration time")(
+        "Nx", po::value<int>()->default_value(100), "Number of grid points in x")(
+        "Ny", po::value<int>()->default_value(100), "Number of grid points in y")(
         "ic", po::value<int>()->default_value(1),
         "Index of the initial condition to use (1-4)");
 
@@ -227,10 +384,27 @@ int main(int argc, char *argv[])
     Evaluate_fv(u, v, h, g, Nx, Ny, dx, dy, fv);
     Evaluate_fh(u, v, h, g, Nx, Ny, dx, dy, fh);
 
+    // verify outputs
+    cout << "fu" << endl;
+    printMatrix(Nx, Ny, fu);
+    cout << "fv" << endl;
+    printMatrix(Nx, Ny, fv);
+    cout << "fh" << endl;
+    printMatrix(Nx, Ny, fh);
+
+    // ======================================================
+    // 4th order RK Time Integrations
+    TimeIntegration(u,v,h,g,Nx,Ny,dx,dy,dt,T,fu,fv,fh);
+
+
 
 
     // deallocations
     delete[] u;
     delete[] v;
     delete[] h;
+    delete[] g;
+    delete[] fu;
+    delete[] fv;
+    delete[] fh;
 }
