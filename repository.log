@@ -1,0 +1,28 @@
+commit 4fa17b082c97aac103d53635c728512064275303
+Author: Chris Ziyi Yao <cy620@spitfire.ae.ic.ac.uk>
+Date:   Fri Mar 10 17:43:16 2023 +0000
+
+    Nested loop to evaluate f
+
+M	draft.cpp
+
+commit 931d7298228df954026538fe6579ad4c5e6053af
+Author: Chris Ziyi Yao <cy620@spitfire.ae.ic.ac.uk>
+Date:   Tue Mar 7 09:25:01 2023 +0000
+
+    Coded SetInitialConditions
+
+M	ShallowWater.cpp
+M	ShallowWater.h
+A	draft.cpp
+D	main.cpp
+
+commit 1d822b7460dd282b60573c30adc243548f92d70e
+Author: Chris Ziyi Yao <cy620@spitfire.ae.ic.ac.uk>
+Date:   Sun Feb 26 19:15:34 2023 +0000
+
+    Implemented reading parameters from the command line
+
+A	ShallowWater.cpp
+A	ShallowWater.h
+A	main.cpp
