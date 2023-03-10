@@ -22,7 +22,6 @@ void printMatrix(int Nx, int Ny, double *A)
     }
 }
 
-
 void SetInitialConditions(double *u, double *v, double *h, double *g, int Nx,
                           int Ny, int ic, double dx, double dy)
 {
@@ -70,9 +69,32 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
     {
         double px = 1.0 / dx;
 
-        for (int i = 0; i < Nx; ++i)
+        for (int j = 0; j < Ny; ++j)
         {
-            for (int j = 0; j < Ny; ++j)
+            // Periodic BC i = 0
+            deriv[0 * Nx + j] =
+                px *
+                (-u[(Nx - 3) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 2) * Nx + j] -
+                 3.0 / 4.0 * u[(Nx-1) * Nx + j] + 3.0 / 4.0 * u[1 * Nx + j] -
+                 3.0 / 20.0 * u[2 * Nx + j] + u[3 * Nx + j] / 60.0);
+
+            // Periodic BC i = 1
+            deriv[1 * Nx + j] =
+                px *
+                (-u[(Nx - 2) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx-1) * Nx + j] -
+                 3.0 / 4.0 * u[0 * Nx + j] + 3.0 / 4.0 * u[2 * Nx + j] -
+                 3.0 / 20.0 * u[3 * Nx + j] + u[4 * Nx + j] / 60.0);
+
+            // Periodic BC i = 2
+            deriv[2 * Nx + j] =
+                px *
+                (-u[(Nx-1) * Nx + j] / 60.0 + 3.0 / 20.0 * u[0 * Nx + j] -
+                 3.0 / 4.0 * u[1 * Nx + j] + 3.0 / 4.0 * u[3 * Nx + j] -
+                 3.0 / 20.0 * u[4 * Nx + j] + u[5 * Nx + j] / 60.0);
+
+
+            // Normal centred scheme
+            for (int i = 3; i < Nx - 3; ++i)
             {
                 deriv[i * Nx + j] =
                     px *
@@ -80,6 +102,27 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
                      3.0 / 4.0 * u[(i - 1) * Nx + j] + 3.0 / 4.0 * u[(i + 1) * Nx + j] -
                      3.0 / 20.0 * u[(i + 2) * Nx + j] + u[(i + 3) * Nx + j] / 60.0);
             }
+
+            // Periodic BC i = Nx-3
+            deriv[(Nx - 3) * Nx + j] =
+                px *
+                (-u[(Nx - 6) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 5) * Nx + j] -
+                 3.0 / 4.0 * u[(Nx - 4) * Nx + j] + 3.0 / 4.0 * u[(Nx - 2) * Nx + j] -
+                 3.0 / 20.0 * u[(Nx-1) * Nx + j] + u[0 * Nx + j] / 60.0);
+
+            // Periodic BC i = Nx-2
+            deriv[(Nx - 2) * Nx + j] =
+                px *
+                (-u[(Nx - 5) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 4) * Nx + j] -
+                 3.0 / 4.0 * u[(Nx - 3) * Nx + j] + 3.0 / 4.0 * u[(Nx-1) * Nx + j] -
+                 3.0 / 20.0 * u[0 * Nx + j] + u[1 * Nx + j] / 60.0);
+
+            // Periodic BC i = Nx-1
+            deriv[(Nx-1) * Nx + j] =
+                px *
+                (-u[(Nx - 4) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 3) * Nx + j] -
+                 3.0 / 4.0 * u[(Nx - 2) * Nx + j] + 3.0 / 4.0 * u[0 * Nx + j] -
+                 3.0 / 20.0 * u[1 * Nx + j] + u[2 * Nx + j] / 60.0);
         }
     }
     else if (dir == 'y')
@@ -88,6 +131,13 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
 
         for (int i = 0; i < Nx; ++i)
         {
+            // Periodic BC for j = 0
+
+
+            // Periodic BC for j = 1
+
+
+            // Periodic BC for j = 2
             for (int j = 0; j < Ny; ++j)
             {
                 deriv[i * Nx + j] =
@@ -96,6 +146,8 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
                      3.0 / 4.0 * u[i * Nx + j - 1] + 3.0 / 4.0 * u[i * Nx + j + 1] -
                      3.0 / 20.0 * u[i * Nx + j + 2] + u[i * Nx + j + 3] / 60.0);
             }
+
+            // Periodic BC for j = Nx-2
         }
     }
 }
@@ -284,27 +336,22 @@ void TimeIntegration(double *u, double *v, double *h, double *g, int Nx, int Ny,
     cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
     cblas_dcopy(Nx * Ny, fh, 1, k4_h, 1);
 
-    // Time advancement
-    double time = 0.0; // start time
-    while (time <= T)
+    // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
+    // Update solution
+    for (int i = 0; i < Nx; ++i)
     {
-        // 1/6*(k1+2*k2+2*k3+k4)*dt
-        for (int i = 0; i < Nx; ++i)
+        for (int j = 0; j < Ny; ++j)
         {
-            for (int j = 0; j < Ny; ++j)
-            {
-                u[i * Nx + j] += dt / 6.0 *
-                                 (k1_u[i * Nx + j] + 2.0 * k2_u[i * Nx + j] +
-                                  2.0 * k3_u[i * Nx + j] + k4_u[i * Nx + j]);
-                v[i * Nx + j] += dt / 6.0 *
-                                 (k1_v[i * Nx + j] + 2.0 * k2_v[i * Nx + j] +
-                                  2.0 * k3_v[i * Nx + j] + k4_v[i * Nx + j]);
-                h[i * Nx + j] += dt / 6.0 *
-                                 (k1_h[i * Nx + j] + 2.0 * k2_h[i * Nx + j] +
-                                  2.0 * k3_h[i * Nx + j] + k4_h[i * Nx + j]);
-            }
+            u[i * Nx + j] += dt / 6.0 *
+                             (k1_u[i * Nx + j] + 2.0 * k2_u[i * Nx + j] +
+                              2.0 * k3_u[i * Nx + j] + k4_u[i * Nx + j]);
+            v[i * Nx + j] += dt / 6.0 *
+                             (k1_v[i * Nx + j] + 2.0 * k2_v[i * Nx + j] +
+                              2.0 * k3_v[i * Nx + j] + k4_v[i * Nx + j]);
+            h[i * Nx + j] += dt / 6.0 *
+                             (k1_h[i * Nx + j] + 2.0 * k2_h[i * Nx + j] +
+                              2.0 * k3_h[i * Nx + j] + k4_h[i * Nx + j]);
         }
-        time += dt;
     }
 
     // deallocate memory
@@ -394,10 +441,14 @@ int main(int argc, char *argv[])
 
     // ======================================================
     // 4th order RK Time Integrations
-    TimeIntegration(u,v,h,g,Nx,Ny,dx,dy,dt,T,fu,fv,fh);
 
-
-
+    // Time advancement
+    double time = 0.0; // start time
+    while (time <= T)
+    {
+        TimeIntegration(u, v, h, g, Nx, Ny, dx, dy, dt, T, fu, fv, fh);
+        time += dt;
+    }
 
     // deallocations
     delete[] u;
