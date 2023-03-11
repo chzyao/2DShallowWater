@@ -22,7 +22,7 @@ void printMatrix(int Nx, int Ny, double *A)
     }
 }
 
-void SetInitialConditions(double *u, double *v, double *h, double *g, int Nx,
+void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
                           int Ny, int ic, double dx, double dy)
 {
     for (int i = 0; i < Nx; ++i)
@@ -34,32 +34,32 @@ void SetInitialConditions(double *u, double *v, double *h, double *g, int Nx,
             v[i * Nx + j] = 0.0;
             if (ic == 1)
             {
-                g[i * Nx + j] = exp(-(i * dx - 50) * (i * dx - 50) / 25.0);
+                h0[i * Nx + j] = 10.0 + exp(-(i * dx - 50) * (i * dx - 50) / 25.0);
             }
             else if (ic == 2)
             {
-                g[i * Nx + j] = exp(-(j * dy - 50) * (j * dy - 50) / 25.0);
+                h0[i * Nx + j] = 10.0 + exp(-(j * dy - 50) * (j * dy - 50) / 25.0);
             }
             else if (ic == 3)
             {
-                g[i * Nx + j] = exp(
+                h0[i * Nx + j] = 10.0 + exp(
                     -((i * dx - 50) * (i * dx - 50) + (j * dy - 50) * (j * dy - 50)) /
                     25.0);
             }
             else
             {
-                g[i * Nx + j] = exp(-((i * dx - 25) * (i * dx - 25) +
+                h0[i * Nx + j] = 10.0 + exp(-((i * dx - 25) * (i * dx - 25) +
                                       (j * dy - 25) * (j * dy - 25)) /
                                     25.0) +
-                                exp(-((i * dx - 75) * (i * dx - 75) +
+                                10.0 + exp(-((i * dx - 75) * (i * dx - 75) +
                                       (j * dy - 75) * (j * dy - 75)) /
                                     25.0);
             }
         }
     }
 
-    // copy the initial surface height g to h as initial conditions
-    cblas_dcopy(Nx * Ny, g, 1, h, 1);
+    // copy the initial surface height h0 to h as initial conditions
+    cblas_dcopy(Nx * Ny, h0, 1, h, 1);
 }
 
 void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
@@ -183,9 +183,10 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
     }
 }
 
-void Evaluate_fu(double *u, double *v, double *h, double *g, int Nx, int Ny,
+void Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
                  double dx, double dy, double *f)
 {
+    double g = 9.81;
     double *deriux = new double[Nx * Ny];
     double *deriuy = new double[Nx * Ny];
     double *derihx = new double[Nx * Ny];
@@ -200,7 +201,7 @@ void Evaluate_fu(double *u, double *v, double *h, double *g, int Nx, int Ny,
         {
             f[i * Nx + j] = -u[i * Nx + j] * deriux[i * Nx + j] -
                             v[i * Nx + j] * deriuy[i * Nx + j] -
-                            g[i * Nx + j] * derihx[i * Nx + j];
+                            g * derihx[i * Nx + j];
         }
     }
 
@@ -209,9 +210,10 @@ void Evaluate_fu(double *u, double *v, double *h, double *g, int Nx, int Ny,
     delete[] derihx;
 }
 
-void Evaluate_fv(double *u, double *v, double *h, double *g, int Nx, int Ny,
+void Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
                  double dx, double dy, double *f)
 {
+    double g = 9.81;
     double *derivx = new double[Nx * Ny];
     double *derivy = new double[Nx * Ny];
     double *derihy = new double[Nx * Ny];
@@ -226,7 +228,7 @@ void Evaluate_fv(double *u, double *v, double *h, double *g, int Nx, int Ny,
         {
             f[i * Nx + j] = -u[i * Nx + j] * derivx[i * Nx + j] -
                             v[i * Nx + j] * derivy[i * Nx + j] -
-                            g[i * Nx + j] * derihy[i * Nx + j];
+                            g * derihy[i * Nx + j];
         }
     }
 
@@ -235,7 +237,7 @@ void Evaluate_fv(double *u, double *v, double *h, double *g, int Nx, int Ny,
     delete[] derihy;
 }
 
-void Evaluate_fh(double *u, double *v, double *h, double *g, int Nx, int Ny,
+void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
                  double dx, double dy, double *f)
 {
     double *derihux = new double[Nx * Ny];
@@ -270,7 +272,7 @@ void Evaluate_fh(double *u, double *v, double *h, double *g, int Nx, int Ny,
     delete[] hv;
 }
 
-void TimeIntegration(double *u, double *v, double *h, double *g, int Nx, int Ny,
+void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
                      double dx, double dy, double dt, double T, double *fu,
                      double *fv, double *fh)
 {
@@ -301,9 +303,9 @@ void TimeIntegration(double *u, double *v, double *h, double *g, int Nx, int Ny,
     cblas_dcopy(Nx * Ny, v, 1, tv, 1);
     cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
-    Evaluate_fu(u, v, h, g, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(u, v, h, g, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(u, v, h, g, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k1_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k1_v, 1);
@@ -321,9 +323,9 @@ void TimeIntegration(double *u, double *v, double *h, double *g, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
 
     // Evaluate new f
-    Evaluate_fu(tu, v, h, g, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tv, v, h, g, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(th, v, h, g, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, v, h, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tv, v, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(th, v, h, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k2_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k2_v, 1);
@@ -340,9 +342,9 @@ void TimeIntegration(double *u, double *v, double *h, double *g, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
     cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
 
-    Evaluate_fu(tu, v, h, g, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tv, v, h, g, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(th, v, h, g, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, v, h, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tv, v, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(th, v, h, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k3_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k3_v, 1);
@@ -359,9 +361,9 @@ void TimeIntegration(double *u, double *v, double *h, double *g, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
     cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
 
-    Evaluate_fu(tu, v, h, g, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tv, v, h, g, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(th, v, h, g, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, v, h, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tv, v, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(th, v, h, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k4_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
@@ -436,7 +438,7 @@ int main(int argc, char *argv[])
     double *u = new double[Nx * Ny];
     double *v = new double[Nx * Ny];
     double *h = new double[Nx * Ny];
-    double *g = new double[Nx * Ny];
+    double *h0 = new double[Nx * Ny];
 
     // debug output
     cout << dt << endl;
@@ -451,16 +453,16 @@ int main(int argc, char *argv[])
 
     // ======================================================
     // test for SetInitialConditions
-    SetInitialConditions(u, v, h, g, Nx, Ny, ic, dx, dy);
+    SetInitialConditions(u, v, h, h0, Nx, Ny, ic, dx, dy);
 
     // ======================================================
     // test for evaluating f
     double *fu = new double[Nx * Ny];
     double *fv = new double[Nx * Ny];
     double *fh = new double[Nx * Ny];
-    Evaluate_fu(u, v, h, g, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(u, v, h, g, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(u, v, h, g, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
 
     // verify outputs
     cout << "fu" << endl;
@@ -477,15 +479,22 @@ int main(int argc, char *argv[])
     double time = 0.0; // start time
     while (time <= T)
     {
-        TimeIntegration(u, v, h, g, Nx, Ny, dx, dy, dt, T, fu, fv, fh);
+        TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, T, fu, fv, fh);
         time += dt;
     }
+
+    // ======================================================
+    // Write to file
+    // Write initial condition
+    ofstream vOut("output.txt", ios::out | ios ::trunc);
+    vOut.precision(5);
+    vOut << setw(15) << "U0" << setw(15) << "Uf" << setw(15) << endl;
 
     // deallocations
     delete[] u;
     delete[] v;
     delete[] h;
-    delete[] g;
+    delete[] h0;
     delete[] fu;
     delete[] fv;
     delete[] fh;
