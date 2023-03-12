@@ -43,17 +43,13 @@ void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
             else if (ic == 3)
             {
                 h0[i * Nx + j] = 10.0 + exp(
-                    -((i * dx - 50) * (i * dx - 50) + (j * dy - 50) * (j * dy - 50)) /
-                    25.0);
+                                            -((i * dx - 50) * (i * dx - 50) + (j * dy - 50) * (j * dy - 50)) /
+                                            25.0);
             }
             else
             {
-                h0[i * Nx + j] = 10.0 + exp(-((i * dx - 25) * (i * dx - 25) +
-                                      (j * dy - 25) * (j * dy - 25)) /
-                                    25.0) +
-                                10.0 + exp(-((i * dx - 75) * (i * dx - 75) +
-                                      (j * dy - 75) * (j * dy - 75)) /
-                                    25.0);
+                h0[i * Nx + j] = 10.0 + exp(-((i * dx - 25) * (i * dx - 25) + (j * dy - 25) * (j * dy - 25)) / 25.0) +
+                                 10.0 + exp(-((i * dx - 75) * (i * dx - 75) + (j * dy - 75) * (j * dy - 75)) / 25.0);
             }
         }
     }
@@ -273,7 +269,7 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
 }
 
 void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
-                     double dx, double dy, double dt, double T, double *fu,
+                     double dx, double dy, double dt, double *fu,
                      double *fv, double *fh)
 {
     // Solving for u
@@ -407,7 +403,8 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
 int main(int argc, char *argv[])
 {
     cout << "Goodbye World" << endl;
-    // Read parameters from command line
+
+    // Read parameters from command line =========================
     po::options_description options("Available Options.");
     options.add_options()("help", "Display help message")(
         "dt", po::value<double>()->default_value(0.1), "Time-step to use")(
@@ -440,12 +437,12 @@ int main(int argc, char *argv[])
     double *h = new double[Nx * Ny];
     double *h0 = new double[Nx * Ny];
 
-    // debug output
-    cout << dt << endl;
-    cout << T << endl;
-    cout << Nx << endl;
-    cout << Ny << endl;
-    cout << ic << endl;
+    // // debug output
+    // cout << dt << endl;
+    // cout << T << endl;
+    // cout << Nx << endl;
+    // cout << Ny << endl;
+    // cout << ic << endl;
 
     // calculating dx and dy
     const double dx = 1.0;
@@ -454,6 +451,10 @@ int main(int argc, char *argv[])
     // ======================================================
     // test for SetInitialConditions
     SetInitialConditions(u, v, h, h0, Nx, Ny, ic, dx, dy);
+
+    // // debug output
+    // cout << "====== h ======" << endl;
+    // printMatrix(Nx,Ny,h);
 
     // ======================================================
     // test for evaluating f
@@ -464,13 +465,13 @@ int main(int argc, char *argv[])
     Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
     Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
 
-    // verify outputs
-    cout << "fu" << endl;
-    printMatrix(Nx, Ny, fu);
-    cout << "fv" << endl;
-    printMatrix(Nx, Ny, fv);
-    cout << "fh" << endl;
-    printMatrix(Nx, Ny, fh);
+    // // verify outputs
+    // cout << "fu" << endl;
+    // printMatrix(Nx, Ny, fu);
+    // cout << "fv" << endl;
+    // printMatrix(Nx, Ny, fv);
+    // cout << "fh" << endl;
+    // printMatrix(Nx, Ny, fh);
 
     // ======================================================
     // 4th order RK Time Integrations
@@ -479,16 +480,34 @@ int main(int argc, char *argv[])
     double time = 0.0; // start time
     while (time <= T)
     {
-        TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, T, fu, fv, fh);
+        TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
         time += dt;
     }
+
+    // for (int i = 0; i < 10; ++i)
+    // {
+    //     TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, T, fu, fv, fh);
+    // }
+
+    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
+    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
+    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
+    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
+    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
+    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
 
     // ======================================================
     // Write to file
     // Write initial condition
     ofstream vOut("output.txt", ios::out | ios ::trunc);
     vOut.precision(5);
-    vOut << setw(15) << "U0" << setw(15) << "Uf" << setw(15) << endl;
+    for (int j = 0; j < Ny; ++j)
+    {
+        for (int i = 0; i < Nx; ++i)
+        {
+            vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * Nx + j] << setw(15) << v[i * Nx + j] << setw(15) << h[i * Nx + j] << endl;
+        }
+    }
 
     // deallocations
     delete[] u;
