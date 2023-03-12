@@ -68,56 +68,15 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
 
         for (int j = 0; j < Ny; ++j)
         {
-            // Periodic BC i = 0
-            deriv[0 * Nx + j] =
-                px *
-                (-u[(Nx - 3) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 2) * Nx + j] -
-                 3.0 / 4.0 * u[(Nx - 1) * Nx + j] + 3.0 / 4.0 * u[1 * Nx + j] -
-                 3.0 / 20.0 * u[2 * Nx + j] + u[3 * Nx + j] / 60.0);
 
-            // Periodic BC i = 1
-            deriv[1 * Nx + j] =
-                px *
-                (-u[(Nx - 2) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 1) * Nx + j] -
-                 3.0 / 4.0 * u[0 * Nx + j] + 3.0 / 4.0 * u[2 * Nx + j] -
-                 3.0 / 20.0 * u[3 * Nx + j] + u[4 * Nx + j] / 60.0);
-
-            // Periodic BC i = 2
-            deriv[2 * Nx + j] =
-                px * (-u[(Nx - 1) * Nx + j] / 60.0 + 3.0 / 20.0 * u[0 * Nx + j] -
-                      3.0 / 4.0 * u[1 * Nx + j] + 3.0 / 4.0 * u[3 * Nx + j] -
-                      3.0 / 20.0 * u[4 * Nx + j] + u[5 * Nx + j] / 60.0);
-
-            // Normal centred scheme
-            for (int i = 3; i < Nx - 3; ++i)
+            for (int i = 0; i < Nx; ++i)
             {
                 deriv[i * Nx + j] =
                     px *
-                    (-u[(i - 3) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(i - 2) * Nx + j] -
-                     3.0 / 4.0 * u[(i - 1) * Nx + j] + 3.0 / 4.0 * u[(i + 1) * Nx + j] -
-                     3.0 / 20.0 * u[(i + 2) * Nx + j] + u[(i + 3) * Nx + j] / 60.0);
+                    (-u[((i - 3 + Nx) % Nx) * Nx + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + Nx) % Nx) * Nx + j] -
+                     3.0 / 4.0 * u[((i - 1 + Nx) % Nx) * Nx + j] + 3.0 / 4.0 * u[((i + 1) % Nx) * Nx + j] -
+                     3.0 / 20.0 * u[((i + 2) % Nx) * Nx + j] + u[((i + 3) % Nx) * Nx + j] / 60.0);
             }
-
-            // Periodic BC i = Nx-3
-            deriv[(Nx - 3) * Nx + j] =
-                px *
-                (-u[(Nx - 6) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 5) * Nx + j] -
-                 3.0 / 4.0 * u[(Nx - 4) * Nx + j] + 3.0 / 4.0 * u[(Nx - 2) * Nx + j] -
-                 3.0 / 20.0 * u[(Nx - 1) * Nx + j] + u[0 * Nx + j] / 60.0);
-
-            // Periodic BC i = Nx-2
-            deriv[(Nx - 2) * Nx + j] =
-                px *
-                (-u[(Nx - 5) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 4) * Nx + j] -
-                 3.0 / 4.0 * u[(Nx - 3) * Nx + j] + 3.0 / 4.0 * u[(Nx - 1) * Nx + j] -
-                 3.0 / 20.0 * u[0 * Nx + j] + u[1 * Nx + j] / 60.0);
-
-            // Periodic BC i = Nx-1
-            deriv[(Nx - 1) * Nx + j] =
-                px *
-                (-u[(Nx - 4) * Nx + j] / 60.0 + 3.0 / 20.0 * u[(Nx - 3) * Nx + j] -
-                 3.0 / 4.0 * u[(Nx - 2) * Nx + j] + 3.0 / 4.0 * u[0 * Nx + j] -
-                 3.0 / 20.0 * u[1 * Nx + j] + u[2 * Nx + j] / 60.0);
         }
     }
 
@@ -128,53 +87,15 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
 
         for (int i = 0; i < Nx; ++i)
         {
-            // Periodic BC for j = 0
-            deriv[i * Nx + 0] =
-                py * (-u[i * Nx + Ny - 3] / 60.0 + 3.0 / 20.0 * u[i * Nx + Ny - 2] -
-                      3.0 / 4.0 * u[i * Nx + Ny - 1] + 3.0 / 4.0 * u[i * Nx + 1] -
-                      3.0 / 20.0 * u[i * Nx + 2] + u[i * Nx + 3] / 60.0);
 
-            // Periodic BC for j = 1
-            deriv[i * Nx + 1] =
-                py * (-u[i * Nx + Ny - 2] / 60.0 + 3.0 / 20.0 * u[i * Nx + Ny - 1] -
-                      3.0 / 4.0 * u[i * Nx + 0] + 3.0 / 4.0 * u[i * Nx + 2] -
-                      3.0 / 20.0 * u[i * Nx + 3] + u[i * Nx + 4] / 60.0);
-
-            // Periodic BC for j = 2
-            deriv[i * Nx + 2] =
-                py * (-u[i * Nx + Ny - 1] / 60.0 + 3.0 / 20.0 * u[i * Nx + 0] -
-                      3.0 / 4.0 * u[i * Nx + 1] + 3.0 / 4.0 * u[i * Nx + 3] -
-                      3.0 / 20.0 * u[i * Nx + 4] + u[i * Nx + 5] / 60.0);
-
-            // Normal centred scheme
-            for (int j = 3; j < Ny - 3; ++j)
+            for (int j = 0; j < Ny; ++j)
             {
                 deriv[i * Nx + j] =
                     py *
-                    (-u[i * Nx + j - 3] / 60.0 + 3.0 / 20.0 * u[i * Nx + j - 2] -
-                     3.0 / 4.0 * u[i * Nx + j - 1] + 3.0 / 4.0 * u[i * Nx + j + 1] -
-                     3.0 / 20.0 * u[i * Nx + j + 2] + u[i * Nx + j + 3] / 60.0);
+                    (-u[i * Nx + (j - 3 + Ny) % Ny] / 60.0 + 3.0 / 20.0 * u[i * Nx + (j - 2 + Ny) % Ny] -
+                     3.0 / 4.0 * u[i * Nx + (j - 1 + Ny) % Ny] + 3.0 / 4.0 * u[i * Nx + (j + 1) % Ny] -
+                     3.0 / 20.0 * u[i * Nx + (j + 2) % Ny] + u[i * Nx + (j + 3) % Ny] / 60.0);
             }
-
-            // Periodic BC for j = Ny-3
-            deriv[i * Nx + Ny - 3] =
-                py *
-                (-u[i * Nx + Ny - 6] / 60.0 + 3.0 / 20.0 * u[i * Nx + Ny - 5] -
-                 3.0 / 4.0 * u[i * Nx + Ny - 4] + 3.0 / 4.0 * u[i * Nx + Ny - 2] -
-                 3.0 / 20.0 * u[i * Nx + Ny - 1] + u[i * Nx + Ny] / 60.0);
-
-            // Periodic BC for j = Ny-2
-            deriv[i * Nx + Ny - 2] =
-                py *
-                (-u[i * Nx + Ny - 5] / 60.0 + 3.0 / 20.0 * u[i * Nx + Ny - 4] -
-                 3.0 / 4.0 * u[i * Nx + Ny - 3] + 3.0 / 4.0 * u[i * Nx + Ny - 1] -
-                 3.0 / 20.0 * u[i * Nx + 0] + u[i * Nx + 1] / 60.0);
-
-            // Periodic BC for j = Ny-1
-            deriv[i * Nx + Ny - 1] =
-                py * (-u[i * Nx + Ny - 4] / 60.0 + 3.0 / 20.0 * u[i * Nx + Ny - 3] -
-                      3.0 / 4.0 * u[i * Nx + Ny - 2] + 3.0 / 4.0 * u[i * Nx + 0] -
-                      3.0 / 20.0 * u[i * Nx + 1] + u[i * Nx + 2] / 60.0);
         }
     }
 }

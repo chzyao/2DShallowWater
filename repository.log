@@ -1,3 +1,38 @@
+commit 2064e61c8bdd0cd65ab109ec97cebfa3475bb956
+Author: Chris Ziyi Yao <cy620@typhoon.ae.ic.ac.uk>
+Date:   Sun Mar 12 13:56:05 2023 +0000
+
+    Write to txt; Next step: check spatial discretisations
+
+M	draft.cpp
+M	output.txt
+
+commit 410ad5985641aa893234936d2e64d557cbafd470
+Author: Chris Ziyi Yao <cy620@typhoon.ae.ic.ac.uk>
+Date:   Sat Mar 11 20:51:35 2023 +0000
+
+    Changes for  new assignment document
+
+M	draft.cpp
+A	output.txt
+
+commit 63c5c3907f0136ba8595535b372d45989e089936
+Author: Chris Ziyi Yao <cy620@spitfire.ae.ic.ac.uk>
+Date:   Sat Mar 11 14:58:42 2023 +0000
+
+    Added periodic BC in y-dir
+
+M	draft.cpp
+
+commit 309062b5d9db41705400ff467020c45cd747d7da
+Author: Chris Ziyi Yao <cy620@spitfire.ae.ic.ac.uk>
+Date:   Fri Mar 10 23:42:21 2023 +0000
+
+    Updated Periodic BC in x-dir
+
+M	draft.cpp
+M	repository.log
+
 commit f96ffe49b1b4951fd0c3b0bb4d4d325ec21d29e1
 Author: Chris Ziyi Yao <cy620@spitfire.ae.ic.ac.uk>
 Date:   Fri Mar 10 22:52:30 2023 +0000
