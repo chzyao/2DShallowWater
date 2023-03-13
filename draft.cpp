@@ -49,7 +49,7 @@ void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
             else
             {
                 h0[i * Nx + j] = 10.0 + exp(-((i * dx - 25) * (i * dx - 25) + (j * dy - 25) * (j * dy - 25)) / 25.0) +
-                                 10.0 + exp(-((i * dx - 75) * (i * dx - 75) + (j * dy - 75) * (j * dy - 75)) / 25.0);
+                                 exp(-((i * dx - 75) * (i * dx - 75) + (j * dy - 75) * (j * dy - 75)) / 25.0);
             }
         }
     }
