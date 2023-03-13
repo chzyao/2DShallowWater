@@ -241,8 +241,8 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
 
     // Evaluate new f
     Evaluate_fu(tu, v, h, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tv, v, h, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(th, v, h, Nx, Ny, dx, dy, fh);
+    Evaluate_fv(u, tv, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(u, v, th, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k2_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k2_v, 1);
@@ -260,8 +260,8 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
 
     Evaluate_fu(tu, v, h, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tv, v, h, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(th, v, h, Nx, Ny, dx, dy, fh);
+    Evaluate_fv(u, tv, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(u, v, th, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k3_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k3_v, 1);
@@ -279,8 +279,8 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
 
     Evaluate_fu(tu, v, h, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tv, v, h, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(th, v, h, Nx, Ny, dx, dy, fh);
+    Evaluate_fv(u, tv, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(u, v, th, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k4_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
