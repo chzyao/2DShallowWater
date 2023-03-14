@@ -40,6 +40,9 @@ public:
                          double dx, double dy, double dt, double *fu,
                          double *fv, double *fh);
 
+    // temp test function
+    void printMatrix(int Nx, int Ny, double *A);
+
     void Solve();
 
     ~ShallowWater();
@@ -47,6 +50,9 @@ public:
 private:
 
     // Input parameters
+    double *u;
+    double *v;
+    double *h;
     const double dt;
     const double T;
     const int Nx;
