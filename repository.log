@@ -1,3 +1,49 @@
+commit 4b7241f995a979e78db0f2724f67f9686985e424
+Author: Chris Ziyi Yao <chris.yao20@imperial.ac.uk>
+Date:   Tue Mar 14 11:10:46 2023 +0000
+
+    BLAS version of f evaluations
+
+M	draft.cpp
+M	output.txt
+
+commit 520b75203ed49d050abf715cc3e26b78023a390d
+Author: Chris Ziyi Yao <cy620@typhoon.ae.ic.ac.uk>
+Date:   Mon Mar 13 18:26:34 2023 +0000
+
+    All working now. dt = 0.1s works for all
+
+M	draft.cpp
+M	output.txt
+
+commit 0b91ab806a96a526a142fb444527974ab8360e84
+Author: Chris Ziyi Yao <cy620@typhoon.ae.ic.ac.uk>
+Date:   Mon Mar 13 18:14:10 2023 +0000
+
+    Fixed the wrong fast propagation in x-direction
+
+M	draft.cpp
+M	output.txt
+
+commit 4ba2350371242786ae617d49eee43a6eb2a20e0c
+Author: Chris Ziyi Yao <cy620@typhoon.ae.ic.ac.uk>
+Date:   Mon Mar 13 00:48:40 2023 +0000
+
+    Fixed typo for test case 4
+
+M	draft.cpp
+M	output.txt
+
+commit 7c75e07d7dc18732263cf16faf1ccdc4a2119ab0
+Author: Chris Ziyi Yao <cy620@typhoon.ae.ic.ac.uk>
+Date:   Sun Mar 12 15:25:43 2023 +0000
+
+    Nested Loop Workinggit status!
+
+M	draft.cpp
+M	output.txt
+M	repository.log
+
 commit 2064e61c8bdd0cd65ab109ec97cebfa3475bb956
 Author: Chris Ziyi Yao <cy620@typhoon.ae.ic.ac.uk>
 Date:   Sun Mar 12 13:56:05 2023 +0000
