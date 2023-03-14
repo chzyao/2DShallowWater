@@ -9,13 +9,53 @@
 using namespace std;
 namespace po = boost::program_options;
 
-ShallowWater::ShallowWater(const po::variables_map &vm)
+ShallowWater::ShallowWater()
+: dt(0.1), T(80.0), Nx(100), Ny(100), ic(3)
 {
+}
+
+ShallowWater::ShallowWater(double dt, double T, int Nx, int Ny, int ic)
+: dt(dt), T(T), Nx(Nx), Ny(Ny), ic(ic)
+{
+}
+
+void ShallowWater::SetParameters(int argc, char *argv[])
+{
+    // Read parameters from command line =========================
+    po::options_description options("Available Options.");
+    options.add_options()("help", "Display help message")(
+        "dt", po::value<double>()->default_value(0.1), "Time-step to use")(
+        "T", po::value<double>()->default_value(80.0), "Total integration time")(
+        "Nx", po::value<int>()->default_value(100), "Number of grid points in x")(
+        "Ny", po::value<int>()->default_value(100), "Number of grid points in y")(
+        "ic", po::value<int>()->default_value(3),
+        "Index of the initial condition to use (1-4)");
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, options), vm);
+    po::notify(vm);
+
+    // Display help message
+    if (vm.count("help"))
+    {
+        cout << options << endl;
+        exit(EXIT_SUCCESS);
+    }
+
+    // Assign parameters
     const double dt = vm["dt"].as<double>();
     const double T = vm["T"].as<double>();
     const int Nx = vm["Nx"].as<int>();
     const int Ny = vm["Ny"].as<int>();
     const int ic = vm["ic"].as<int>();
+
+    cout << dt << endl;
+    cout << T << endl;
+    cout << Nx << endl;
+    cout << Ny << endl;
+    cout << ic << endl;
+
+
 }
 
 void ShallowWater::SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx, int Ny, int ic, double dx, double dy)
@@ -388,6 +428,20 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, int Nx, int 
     delete[] k2_h;
     delete[] k3_h;
     delete[] k4_h;
+}
+
+void Solve()
+{
+    // // Memory Allocation for solutions 
+    // double *u = new double[Nx * Ny];
+    // double *v = new double[Nx * Ny];
+    // double *h = new double[Nx * Ny];
+    // double *h0 = new double[Nx * Ny];
+
+
+
+
+
 }
 
 ShallowWater::~ShallowWater()

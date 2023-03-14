@@ -9,7 +9,12 @@ class ShallowWater
 {
 
 public:
-    ShallowWater(const po::variables_map &vm);
+
+    ShallowWater();
+
+    ShallowWater(double dt, double T, int Nx, int Ny, int ic);
+
+    static void SetParameters(int argc, char *argv[]);
 
     void SetInitialConditions(double *u, double *v, double *h, double *h0,
                               int Nx, int Ny, int ic, double dx, double dy);
@@ -35,13 +40,19 @@ public:
                          double dx, double dy, double dt, double *fu,
                          double *fv, double *fh);
 
+    void Solve();
+
     ~ShallowWater();
 
 private:
-    // solutions
-    double *u;
-    double *v;
-    double *h;
+
+    // Input parameters
+    const double dt;
+    const double T;
+    const int Nx;
+    const int Ny;
+    const int ic;
+
 };
 
 #endif
