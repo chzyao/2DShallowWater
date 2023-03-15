@@ -10,12 +10,7 @@ using namespace std;
 namespace po = boost::program_options;
 
 ShallowWater::ShallowWater()
-: dt(0.1), T(80.0), Nx(100), Ny(100), ic(3)
-{
-}
-
-ShallowWater::ShallowWater(double dt, double T, int Nx, int Ny, int ic)
-: dt(dt), T(T), Nx(Nx), Ny(Ny), ic(ic)
+    : m_dt(0.1), m_T(80.0), m_Nx(100), m_Ny(100), m_ic(3)
 {
 }
 
@@ -43,73 +38,71 @@ void ShallowWater::SetParameters(int argc, char *argv[])
     }
 
     // Assign parameters
-    const double dt = vm["dt"].as<double>();
-    const double T = vm["T"].as<double>();
-    const int Nx = vm["Nx"].as<int>();
-    const int Ny = vm["Ny"].as<int>();
-    const int ic = vm["ic"].as<int>();
+    m_dt = vm["dt"].as<double>();
+    m_T = vm["T"].as<double>();
+    m_Nx = vm["Nx"].as<int>();
+    m_Ny = vm["Ny"].as<int>();
+    m_ic = vm["ic"].as<int>();
 
-    cout << dt << endl;
-    cout << T << endl;
-    cout << Nx << endl;
-    cout << Ny << endl;
-    cout << ic << endl;
-
-
+    // Memory Allocation for solutions
+    m_u = new double[m_Nx * m_Ny];
+    m_v = new double[m_Nx * m_Ny];
+    m_h = new double[m_Nx * m_Ny];
+    m_h0 = new double[m_Nx * m_Ny];
 }
 
-void ShallowWater::SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx, int Ny, int ic, double dx, double dy)
+void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
 {
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
             // All coded in row-major for now
-            u[i * Nx + j] = 0.0;
-            v[i * Nx + j] = 0.0;
-            if (ic == 1)
+            m_u[i * m_Nx + j] = 0.0;
+            m_v[i * m_Nx + j] = 0.0;
+            if (m_ic == 1)
             {
-                h0[i * Nx + j] = 10.0 + exp(-(i * dx - 50) * (i * dx - 50) / 25.0);
+                m_h0[i * m_Nx + j] = 10.0 + exp(-(i * m_dx - 50) * (i * m_dx - 50) / 25.0);
             }
-            else if (ic == 2)
+            else if (m_ic == 2)
             {
-                h0[i * Nx + j] = 10.0 + exp(-(j * dy - 50) * (j * dy - 50) / 25.0);
+                m_h0[i * m_Nx + j] = 10.0 + exp(-(j * m_dy - 50) * (j * m_dy - 50) / 25.0);
             }
-            else if (ic == 3)
+            else if (m_ic == 3)
             {
-                h0[i * Nx + j] = 10.0 + exp(
-                                            -((i * dx - 50) * (i * dx - 50) + (j * dy - 50) * (j * dy - 50)) /
-                                            25.0);
+                m_h0[i * m_Nx + j] = 10.0 + exp(
+                                                -((i * m_dx - 50) * (i * m_dx - 50) + (j * m_dy - 50) * (j * m_dy - 50)) /
+                                                25.0);
             }
             else
             {
-                h0[i * Nx + j] = 10.0 + exp(-((i * dx - 25) * (i * dx - 25) + (j * dy - 25) * (j * dy - 25)) / 25.0) +
-                                 exp(-((i * dx - 75) * (i * dx - 75) + (j * dy - 75) * (j * dy - 75)) / 25.0);
+                m_h0[i * m_Nx + j] = 10.0 + exp(-((i * m_dx - 25) * (i * m_dx - 25) + (j * m_dy - 25) * (j * m_dy - 25)) / 25.0) +
+                                     exp(-((i * m_dx - 75) * (i * m_dx - 75) + (j * m_dy - 75) * (j * m_dy - 75)) / 25.0);
             }
         }
     }
 
     // copy the initial surface height h0 to h as initial conditions
-    cblas_dcopy(Nx * Ny, h0, 1, h, 1);
+    cblas_dcopy(m_Nx * m_Ny, m_h0, 1, m_h, 1);
 }
 
-void ShallowWater::SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy, char dir, double *deriv)
+void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
 {
     // Discretisation in x-dir ============================================
     if (dir == 'x')
     {
-        double px = 1.0 / dx;
+        double px = 1.0 / m_dx;
 
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
 
-            for (int i = 0; i < Nx; ++i)
+            for (int i = 0; i < m_Nx; ++i)
             {
-                deriv[i * Nx + j] =
+                deriv[i * m_Nx + j] =
                     px *
-                    (-u[((i - 3 + Nx) % Nx) * Nx + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + Nx) % Nx) * Nx + j] -
-                     3.0 / 4.0 * u[((i - 1 + Nx) % Nx) * Nx + j] + 3.0 / 4.0 * u[((i + 1) % Nx) * Nx + j] -
-                     3.0 / 20.0 * u[((i + 2) % Nx) * Nx + j] + u[((i + 3) % Nx) * Nx + j] / 60.0);
+                    (-u[((i - 3 + m_Nx) % m_Nx) * m_Nx + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + m_Nx) % m_Nx) * m_Nx + j] -
+                     3.0 / 4.0 * u[((i - 1 + m_Nx) % m_Nx) * m_Nx + j] + 3.0 / 4.0 * u[((i + 1) % m_Nx) * m_Nx + j] -
+                     3.0 / 20.0 * u[((i + 2) % m_Nx) * m_Nx + j] + u[((i + 3) % m_Nx) * m_Nx + j] / 60.0);
             }
         }
     }
@@ -117,42 +110,41 @@ void ShallowWater::SpatialDiscretisation(double *u, int Nx, int Ny, double dx, d
     // Discretisation in y-dir ============================================
     else if (dir == 'y')
     {
-        double py = 1.0 / dy;
+        double py = 1.0 / m_dy;
 
-        for (int i = 0; i < Nx; ++i)
+        for (int i = 0; i < m_Nx; ++i)
         {
 
-            for (int j = 0; j < Ny; ++j)
+            for (int j = 0; j < m_Ny; ++j)
             {
-                deriv[i * Nx + j] =
+                deriv[i * m_Nx + j] =
                     py *
-                    (-u[i * Nx + (j - 3 + Ny) % Ny] / 60.0 + 3.0 / 20.0 * u[i * Nx + (j - 2 + Ny) % Ny] -
-                     3.0 / 4.0 * u[i * Nx + (j - 1 + Ny) % Ny] + 3.0 / 4.0 * u[i * Nx + (j + 1) % Ny] -
-                     3.0 / 20.0 * u[i * Nx + (j + 2) % Ny] + u[i * Nx + (j + 3) % Ny] / 60.0);
+                    (-u[i * m_Nx + (j - 3 + m_Ny) % m_Ny] / 60.0 + 3.0 / 20.0 * u[i * m_Nx + (j - 2 + m_Ny) % m_Ny] -
+                     3.0 / 4.0 * u[i * m_Nx + (j - 1 + m_Ny) % m_Ny] + 3.0 / 4.0 * u[i * m_Nx + (j + 1) % m_Ny] -
+                     3.0 / 20.0 * u[i * m_Nx + (j + 2) % m_Ny] + u[i * m_Nx + (j + 3) % m_Ny] / 60.0);
             }
         }
     }
 }
 
-void ShallowWater::Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
-                               double dx, double dy, double *f)
+void ShallowWater::Evaluate_fu(double *u, double *v, double *h, double *f)
 {
     double g = 9.81;
-    double *deriux = new double[Nx * Ny];
-    double *deriuy = new double[Nx * Ny];
-    double *derihx = new double[Nx * Ny];
+    double *deriux = new double[m_Nx * m_Ny];
+    double *deriuy = new double[m_Nx * m_Ny];
+    double *derihx = new double[m_Nx * m_Ny];
 
-    SpatialDiscretisation(u, Nx, Ny, dx, dy, 'x', deriux);
-    SpatialDiscretisation(u, Nx, Ny, dx, dy, 'y', deriuy);
-    SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', derihx);
+    SpatialDiscretisation(u, 'x', deriux);
+    SpatialDiscretisation(u, 'y', deriuy);
+    SpatialDiscretisation(h, 'x', derihx);
 
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            f[i * Nx + j] = -u[i * Nx + j] * deriux[i * Nx + j] -
-                            v[i * Nx + j] * deriuy[i * Nx + j] -
-                            g * derihx[i * Nx + j];
+            f[i * m_Nx + j] = -m_u[i * m_Nx + j] * deriux[i * m_Nx + j] -
+                              m_v[i * m_Nx + j] * deriuy[i * m_Nx + j] -
+                              g * derihx[i * m_Nx + j];
         }
     }
 
@@ -161,25 +153,24 @@ void ShallowWater::Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
     delete[] derihx;
 }
 
-void ShallowWater ::Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
-                                double dx, double dy, double *f)
+void ShallowWater::Evaluate_fv(double *u, double *v, double *h, double *f)
 {
     double g = 9.81;
-    double *derivx = new double[Nx * Ny];
-    double *derivy = new double[Nx * Ny];
-    double *derihy = new double[Nx * Ny];
+    double *derivx = new double[m_Nx * m_Ny];
+    double *derivy = new double[m_Nx * m_Ny];
+    double *derihy = new double[m_Nx * m_Ny];
 
-    SpatialDiscretisation(v, Nx, Ny, dx, dy, 'x', derivx);
-    SpatialDiscretisation(v, Nx, Ny, dx, dy, 'y', derivy);
-    SpatialDiscretisation(h, Nx, Ny, dx, dy, 'y', derihy);
+    SpatialDiscretisation(v, 'x', derivx);
+    SpatialDiscretisation(v, 'y', derivy);
+    SpatialDiscretisation(h, 'y', derihy);
 
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            f[i * Nx + j] = -u[i * Nx + j] * derivx[i * Nx + j] -
-                            v[i * Nx + j] * derivy[i * Nx + j] -
-                            g * derihy[i * Nx + j];
+            f[i * m_Nx + j] = -u[i * m_Nx + j] * derivx[i * m_Nx + j] -
+                              v[i * m_Nx + j] * derivy[i * m_Nx + j] -
+                              g * derihy[i * m_Nx + j];
         }
     }
 
@@ -188,32 +179,31 @@ void ShallowWater ::Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
     delete[] derihy;
 }
 
-void ShallowWater::Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
-                               double dx, double dy, double *f)
+void ShallowWater::Evaluate_fh(double *u, double *v, double *h, double *f)
 {
-    double *derihux = new double[Nx * Ny];
-    double *derihvy = new double[Nx * Ny];
-    double *hu = new double[Nx * Ny];
-    double *hv = new double[Nx * Ny];
+    double *derihux = new double[m_Nx * m_Ny];
+    double *derihvy = new double[m_Nx * m_Ny];
+    double *hu = new double[m_Nx * m_Ny];
+    double *hv = new double[m_Nx * m_Ny];
 
     // find hu and hv
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            hu[i * Nx + j] = h[i * Nx + j] * u[i * Nx + j];
-            hv[i * Nx + j] = h[i * Nx + j] * v[i * Nx + j];
+            hu[i * m_Nx + j] = h[i * m_Nx + j] * u[i * m_Nx + j];
+            hv[i * m_Nx + j] = h[i * m_Nx + j] * v[i * m_Nx + j];
         }
     }
 
-    SpatialDiscretisation(hu, Nx, Ny, dx, dy, 'x', derihux);
-    SpatialDiscretisation(hv, Nx, Ny, dx, dy, 'y', derihvy);
+    SpatialDiscretisation(hu, 'x', derihux);
+    SpatialDiscretisation(hv, 'y', derihvy);
 
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            f[i * Nx + j] = -derihux[i * Nx + j] - derihvy[i * Nx + j];
+            f[i * m_Nx + j] = -derihux[i * m_Nx + j] - derihvy[i * m_Nx + j];
         }
     }
 
@@ -223,193 +213,193 @@ void ShallowWater::Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     delete[] hv;
 }
 
-void ShallowWater::Evaluate_fu_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
-{
-    double g = 9.81;
-    double *deriux = new double[Nx * Ny];
-    double *deriuy = new double[Nx * Ny];
-    double *derihx = new double[Nx * Ny];
+// void ShallowWater::Evaluate_fu_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
+// {
+//     double g = 9.81;
+//     double *deriux = new double[Nx * Ny];
+//     double *deriuy = new double[Nx * Ny];
+//     double *derihx = new double[Nx * Ny];
 
-    SpatialDiscretisation(u, Nx, Ny, dx, dy, 'x', deriux);
-    SpatialDiscretisation(u, Nx, Ny, dx, dy, 'y', deriuy);
-    SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', derihx);
+//     SpatialDiscretisation(u, Nx, Ny, dx, dy, 'x', deriux);
+//     SpatialDiscretisation(u, Nx, Ny, dx, dy, 'y', deriuy);
+//     SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', derihx);
 
-    cblas_ddot(Nx * Ny, u, 1, deriux, 1);
-    cblas_daxpy(Nx * Ny, -1.0, deriux, 1, f, 1);
+//     cblas_ddot(Nx * Ny, u, 1, deriux, 1);
+//     cblas_daxpy(Nx * Ny, -1.0, deriux, 1, f, 1);
 
-    cblas_ddot(Nx * Ny, u, 1, deriuy, 1);
-    cblas_daxpy(Nx * Ny, -1.0, deriuy, 1, f, 1);
+//     cblas_ddot(Nx * Ny, u, 1, deriuy, 1);
+//     cblas_daxpy(Nx * Ny, -1.0, deriuy, 1, f, 1);
 
-    cblas_ddot(Nx * Ny, h, 1, derihx, 1);
-    cblas_daxpy(Nx * Ny, -1.0, derihx, 1, f, 1);
-}
+//     cblas_ddot(Nx * Ny, h, 1, derihx, 1);
+//     cblas_daxpy(Nx * Ny, -1.0, derihx, 1, f, 1);
+// }
 
-void ShallowWater::Evaluate_fv_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
-{
-    double g = 9.81;
-    double *derivx = new double[Nx * Ny];
-    double *derivy = new double[Nx * Ny];
-    double *derihy = new double[Nx * Ny];
+// void ShallowWater::Evaluate_fv_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
+// {
+//     double g = 9.81;
+//     double *derivx = new double[Nx * Ny];
+//     double *derivy = new double[Nx * Ny];
+//     double *derihy = new double[Nx * Ny];
 
-    SpatialDiscretisation(v, Nx, Ny, dx, dy, 'x', derivx);
-    SpatialDiscretisation(v, Nx, Ny, dx, dy, 'y', derivy);
-    SpatialDiscretisation(h, Nx, Ny, dx, dy, 'y', derihy);
+//     SpatialDiscretisation(v, Nx, Ny, dx, dy, 'x', derivx);
+//     SpatialDiscretisation(v, Nx, Ny, dx, dy, 'y', derivy);
+//     SpatialDiscretisation(h, Nx, Ny, dx, dy, 'y', derihy);
 
-    cblas_ddot(Nx * Ny, u, 1, derivx, 1);
-    cblas_daxpy(Nx * Ny, -1.0, derivx, 1, f, 1);
+//     cblas_ddot(Nx * Ny, u, 1, derivx, 1);
+//     cblas_daxpy(Nx * Ny, -1.0, derivx, 1, f, 1);
 
-    cblas_ddot(Nx * Ny, u, 1, derivy, 1);
-    cblas_daxpy(Nx * Ny, -1.0, derivy, 1, f, 1);
+//     cblas_ddot(Nx * Ny, u, 1, derivy, 1);
+//     cblas_daxpy(Nx * Ny, -1.0, derivy, 1, f, 1);
 
-    cblas_ddot(Nx * Ny, h, 1, derihy, 1);
-    cblas_daxpy(Nx * Ny, -1.0, derihy, 1, f, 1);
-}
+//     cblas_ddot(Nx * Ny, h, 1, derihy, 1);
+//     cblas_daxpy(Nx * Ny, -1.0, derihy, 1, f, 1);
+// }
 
-void ShallowWater::Evaluate_fh_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
-{
-    double *derihux = new double[Nx * Ny];
-    double *derihvy = new double[Nx * Ny];
-    double *hu = new double[Nx * Ny];
-    double *hv = new double[Nx * Ny];
+// void ShallowWater::Evaluate_fh_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
+// {
+//     double *derihux = new double[Nx * Ny];
+//     double *derihvy = new double[Nx * Ny];
+//     double *hu = new double[Nx * Ny];
+//     double *hv = new double[Nx * Ny];
 
-    SpatialDiscretisation(hu, Nx, Ny, dx, dy, 'x', derihux);
-    SpatialDiscretisation(hv, Nx, Ny, dx, dy, 'y', derihvy);
+//     SpatialDiscretisation(hu, Nx, Ny, dx, dy, 'x', derihux);
+//     SpatialDiscretisation(hv, Nx, Ny, dx, dy, 'y', derihvy);
 
-    cblas_ddot(Nx * Ny, h, 1, u, 1);
-    cblas_dcopy(Nx * Ny, u, 1, hu, 1);
-    cblas_daxpy(Nx * Ny, -1.0, hu, 1, f, 1);
+//     cblas_ddot(Nx * Ny, h, 1, u, 1);
+//     cblas_dcopy(Nx * Ny, u, 1, hu, 1);
+//     cblas_daxpy(Nx * Ny, -1.0, hu, 1, f, 1);
 
-    cblas_ddot(Nx * Ny, h, 1, v, 1);
-    cblas_dcopy(Nx * Ny, u, 1, hv, 1);
-    cblas_daxpy(Nx * Ny, -1.0, hv, 1, f, 1);
-}
+//     cblas_ddot(Nx * Ny, h, 1, v, 1);
+//     cblas_dcopy(Nx * Ny, u, 1, hv, 1);
+//     cblas_daxpy(Nx * Ny, -1.0, hv, 1, f, 1);
+// }
 
-void ShallowWater::TimeIntegration(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double dt, double *fu, double *fv, double *fh)
+void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, double *fv, double *fh)
 {
     // Solving for u
-    double *k1_u = new double[Nx * Ny];
-    double *k2_u = new double[Nx * Ny];
-    double *k3_u = new double[Nx * Ny];
-    double *k4_u = new double[Nx * Ny];
+    double *k1_u = new double[m_Nx * m_Ny];
+    double *k2_u = new double[m_Nx * m_Ny];
+    double *k3_u = new double[m_Nx * m_Ny];
+    double *k4_u = new double[m_Nx * m_Ny];
 
     // Solve for v
-    double *k1_v = new double[Nx * Ny];
-    double *k2_v = new double[Nx * Ny];
-    double *k3_v = new double[Nx * Ny];
-    double *k4_v = new double[Nx * Ny];
+    double *k1_v = new double[m_Nx * m_Ny];
+    double *k2_v = new double[m_Nx * m_Ny];
+    double *k3_v = new double[m_Nx * m_Ny];
+    double *k4_v = new double[m_Nx * m_Ny];
 
     // Solve for h
-    double *k1_h = new double[Nx * Ny];
-    double *k2_h = new double[Nx * Ny];
-    double *k3_h = new double[Nx * Ny];
-    double *k4_h = new double[Nx * Ny];
+    double *k1_h = new double[m_Nx * m_Ny];
+    double *k2_h = new double[m_Nx * m_Ny];
+    double *k3_h = new double[m_Nx * m_Ny];
+    double *k4_h = new double[m_Nx * m_Ny];
 
-    double *tu = new double[Nx * Ny]; // temp vector t = u
-    double *tv = new double[Nx * Ny]; // temp vector t = v
-    double *th = new double[Nx * Ny]; // temp vector t = h
+    double *tu = new double[m_Nx * m_Ny]; // temp vector t = u
+    double *tv = new double[m_Nx * m_Ny]; // temp vector t = v
+    double *th = new double[m_Nx * m_Ny]; // temp vector t = h
 
     // Calculating k1 = f(yn) ===================================
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1);
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(m_Nx * m_Ny, u, 1, tu, 1);
+    cblas_dcopy(m_Nx * m_Ny, v, 1, tv, 1);
+    cblas_dcopy(m_Nx * m_Ny, h, 1, th, 1);
 
-    // Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(u, v, h, fu);
+    Evaluate_fv(u, v, h, fv);
+    Evaluate_fh(u, v, h, fh);
 
-    Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
-    Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
-    Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
+    // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
+    // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
+    // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny, fu, 1, k1_u, 1);
-    cblas_dcopy(Nx * Ny, fv, 1, k1_v, 1);
-    cblas_dcopy(Nx * Ny, fh, 1, k1_h, 1);
+    cblas_dcopy(m_Nx * m_Ny, fu, 1, k1_u, 1);
+    cblas_dcopy(m_Nx * m_Ny, fv, 1, k1_v, 1);
+    cblas_dcopy(m_Nx * m_Ny, fh, 1, k1_h, 1);
 
     // Calculating k2 = f(yn + dt*k1/2) ==========================
     // reset temp values
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(m_Nx * m_Ny, m_u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(m_Nx * m_Ny, m_v, 1, tv, 1);
+    cblas_dcopy(m_Nx * m_Ny, m_h, 1, th, 1);
 
     // update un to un+dt*k1/2 to evaluate f for k2
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k1_u, 1, tu, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k1_v, 1, tv, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k1_h, 1, th, 1);
 
     // Evaluate new f
-    // Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, fu);
+    Evaluate_fv(tu, tv, th, fv);
+    Evaluate_fh(tu, tv, th, fh);
 
-    Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
+    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
+    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
+    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny, fu, 1, k2_u, 1);
-    cblas_dcopy(Nx * Ny, fv, 1, k2_v, 1);
-    cblas_dcopy(Nx * Ny, fh, 1, k2_h, 1);
+    cblas_dcopy(m_Nx * m_Ny, fu, 1, k2_u, 1);
+    cblas_dcopy(m_Nx * m_Ny, fv, 1, k2_v, 1);
+    cblas_dcopy(m_Nx * m_Ny, fh, 1, k2_h, 1);
 
     // Calculating k3 = f(yn+dt*k2/2) =============================
     // reset temp values
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(m_Nx * m_Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(m_Nx * m_Ny, v, 1, tv, 1);
+    cblas_dcopy(m_Nx * m_Ny, h, 1, th, 1);
 
     // update un to un+dt*k2/2 to evaluate f for k3
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k2_u, 1, tu, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k2_v, 1, tv, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k2_h, 1, th, 1);
 
-    // Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, fu);
+    Evaluate_fv(tu, tv, th, fv);
+    Evaluate_fh(tu, tv, th, fh);
 
-    Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
+    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
+    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
+    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny, fu, 1, k3_u, 1);
-    cblas_dcopy(Nx * Ny, fv, 1, k3_v, 1);
-    cblas_dcopy(Nx * Ny, fh, 1, k3_h, 1);
+    cblas_dcopy(m_Nx * m_Ny, fu, 1, k3_u, 1);
+    cblas_dcopy(m_Nx * m_Ny, fv, 1, k3_v, 1);
+    cblas_dcopy(m_Nx * m_Ny, fh, 1, k3_h, 1);
 
     // k4 = f(yn+dt*k3) ===========================================
     // reset temp values
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(m_Nx * m_Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(m_Nx * m_Ny, v, 1, tv, 1);
+    cblas_dcopy(m_Nx * m_Ny, h, 1, th, 1);
 
     // update un to un+dt*k2/2 to evaluate f for k3
-    cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt, k3_u, 1, tu, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt, k3_v, 1, tv, 1);
+    cblas_daxpy(m_Nx * m_Ny, m_dt, k3_h, 1, th, 1);
 
-    // Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, fu);
+    Evaluate_fv(tu, tv, th, fv);
+    Evaluate_fh(tu, tv, th, fh);
 
-    Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
+    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
+    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
+    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny, fu, 1, k4_u, 1);
-    cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
-    cblas_dcopy(Nx * Ny, fh, 1, k4_h, 1);
+    cblas_dcopy(m_Nx * m_Ny, fu, 1, k4_u, 1);
+    cblas_dcopy(m_Nx * m_Ny, fv, 1, k4_v, 1);
+    cblas_dcopy(m_Nx * m_Ny, fh, 1, k4_h, 1);
 
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            u[i * Nx + j] += dt / 6.0 *
-                             (k1_u[i * Nx + j] + 2.0 * k2_u[i * Nx + j] +
-                              2.0 * k3_u[i * Nx + j] + k4_u[i * Nx + j]);
-            v[i * Nx + j] += dt / 6.0 *
-                             (k1_v[i * Nx + j] + 2.0 * k2_v[i * Nx + j] +
-                              2.0 * k3_v[i * Nx + j] + k4_v[i * Nx + j]);
-            h[i * Nx + j] += dt / 6.0 *
-                             (k1_h[i * Nx + j] + 2.0 * k2_h[i * Nx + j] +
-                              2.0 * k3_h[i * Nx + j] + k4_h[i * Nx + j]);
+            u[i * m_Nx + j] += m_dt / 6.0 *
+                             (k1_u[i * m_Nx + j] + 2.0 * k2_u[i * m_Nx + j] +
+                              2.0 * k3_u[i * m_Nx + j] + k4_u[i * m_Nx + j]);
+            v[i * m_Nx + j] += m_dt / 6.0 *
+                             (k1_v[i * m_Nx + j] + 2.0 * k2_v[i * m_Nx + j] +
+                              2.0 * k3_v[i * m_Nx + j] + k4_v[i * m_Nx + j]);
+            h[i * m_Nx + j] += m_dt / 6.0 *
+                             (k1_h[i * m_Nx + j] + 2.0 * k2_h[i * m_Nx + j] +
+                              2.0 * k3_h[i * m_Nx + j] + k4_h[i * m_Nx + j]);
         }
     }
 
@@ -430,17 +420,47 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, int Nx, int 
     delete[] k4_h;
 }
 
-void Solve()
+void ShallowWater::Solve()
 {
-    // // Memory Allocation for solutions 
-    // double *u = new double[Nx * Ny];
-    // double *v = new double[Nx * Ny];
-    // double *h = new double[Nx * Ny];
-    // double *h0 = new double[Nx * Ny];
+    // Memory Allocation for solutions
+    double *u = new double[m_Nx * m_Ny];
+    double *v = new double[m_Nx * m_Ny];
+    double *h = new double[m_Nx * m_Ny];
 
+    const double dx = 1.0;
+    const double dy = 1.0;
 
+    double *fu = new double[m_Nx * m_Ny];
+    double *fv = new double[m_Nx * m_Ny];
+    double *fh = new double[m_Nx * m_Ny];
 
+    //  =====================================================
+    // Set Initial conditions
+    SetInitialConditions(u, v, h);
 
+    // ======================================================
+    // 4th order RK Time Integrations
+
+    // Time advancement
+    double time = 0.0; // start time
+    while (time <= m_T)
+    {
+        TimeIntegration(u, v, h, fu, fv, fh);
+        time += m_dt;
+    }
+
+    // ======================================================
+    // Write to file
+    // Write initial condition
+    ofstream vOut("output.txt", ios::out | ios ::trunc);
+    vOut.precision(5);
+    for (int j = 0; j < m_Ny; ++j)
+    {
+        for (int i = 0; i < m_Nx; ++i)
+        {
+            vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * m_Nx + j] << setw(15) << v[i * m_Nx + j] << setw(15) << h[i * m_Nx + j] << endl;
+        }
+    }
 
 }
 
