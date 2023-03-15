@@ -14,7 +14,15 @@ public:
     int m_Nx;
     int m_Ny;
     int m_ic;
-    
+    double m_dx;
+    double m_dy;
+
+    // Solutions
+    double *m_u;
+    double *m_v;
+    double *m_h;
+    double *m_h0; // initial condition
+
     ShallowWater();
 
     void SetParameters(int argc, char *argv[]);
@@ -38,6 +46,8 @@ public:
 
     void Solve();
 
+    void printMatrix(double *A);
+
     ~ShallowWater();
 
 private:
@@ -48,15 +58,15 @@ private:
     // int m_Ny;
     // int m_ic;
 
-    // Mesh size
-    double m_dx;
-    double m_dy;
+    // // Mesh size
+    // double m_dx;
+    // double m_dy;
 
-    // Solutions
-    double *m_u;
-    double *m_v;
-    double *m_h;
-    double *m_h0; // initial condition
+    // // Solutions
+    // double *m_u;
+    // double *m_v;
+    // double *m_h;
+    // double *m_h0; // initial condition
 };
 
 #endif

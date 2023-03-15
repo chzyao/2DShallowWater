@@ -44,22 +44,26 @@ void ShallowWater::SetParameters(int argc, char *argv[])
     m_Ny = vm["Ny"].as<int>();
     m_ic = vm["ic"].as<int>();
 
-    // Memory Allocation for solutions
-    m_u = new double[m_Nx * m_Ny];
-    m_v = new double[m_Nx * m_Ny];
-    m_h = new double[m_Nx * m_Ny];
-    m_h0 = new double[m_Nx * m_Ny];
+    // Mesh Sizes
+    m_dx = 1.0;
+    m_dy = 1.0;
+
+    // // Initialise solution fields
+    // m_u = new double[m_Nx * m_Ny];
+    // m_v = new double[m_Nx * m_Ny];
+    // m_h = new double[m_Nx * m_Ny];
 }
 
 void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
 {
+    m_h0 = new double[m_Nx * m_Ny];
     for (int i = 0; i < m_Nx; ++i)
     {
         for (int j = 0; j < m_Ny; ++j)
         {
             // All coded in row-major for now
-            m_u[i * m_Nx + j] = 0.0;
-            m_v[i * m_Nx + j] = 0.0;
+            u[i * m_Nx + j] = 0.0;
+            v[i * m_Nx + j] = 0.0;
             if (m_ic == 1)
             {
                 m_h0[i * m_Nx + j] = 10.0 + exp(-(i * m_dx - 50) * (i * m_dx - 50) / 25.0);
@@ -83,7 +87,7 @@ void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
     }
 
     // copy the initial surface height h0 to h as initial conditions
-    cblas_dcopy(m_Nx * m_Ny, m_h0, 1, m_h, 1);
+    cblas_dcopy(m_Nx * m_Ny, m_h0, 1, h, 1);
 }
 
 void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
@@ -392,14 +396,14 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
         for (int j = 0; j < m_Ny; ++j)
         {
             u[i * m_Nx + j] += m_dt / 6.0 *
-                             (k1_u[i * m_Nx + j] + 2.0 * k2_u[i * m_Nx + j] +
-                              2.0 * k3_u[i * m_Nx + j] + k4_u[i * m_Nx + j]);
+                               (k1_u[i * m_Nx + j] + 2.0 * k2_u[i * m_Nx + j] +
+                                2.0 * k3_u[i * m_Nx + j] + k4_u[i * m_Nx + j]);
             v[i * m_Nx + j] += m_dt / 6.0 *
-                             (k1_v[i * m_Nx + j] + 2.0 * k2_v[i * m_Nx + j] +
-                              2.0 * k3_v[i * m_Nx + j] + k4_v[i * m_Nx + j]);
+                               (k1_v[i * m_Nx + j] + 2.0 * k2_v[i * m_Nx + j] +
+                                2.0 * k3_v[i * m_Nx + j] + k4_v[i * m_Nx + j]);
             h[i * m_Nx + j] += m_dt / 6.0 *
-                             (k1_h[i * m_Nx + j] + 2.0 * k2_h[i * m_Nx + j] +
-                              2.0 * k3_h[i * m_Nx + j] + k4_h[i * m_Nx + j]);
+                               (k1_h[i * m_Nx + j] + 2.0 * k2_h[i * m_Nx + j] +
+                                2.0 * k3_h[i * m_Nx + j] + k4_h[i * m_Nx + j]);
         }
     }
 
@@ -422,13 +426,16 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
 
 void ShallowWater::Solve()
 {
-    // Memory Allocation for solutions
+    // Memory Allocation for intermidate step solutions
     double *u = new double[m_Nx * m_Ny];
     double *v = new double[m_Nx * m_Ny];
     double *h = new double[m_Nx * m_Ny];
 
-    const double dx = 1.0;
-    const double dy = 1.0;
+    // Memory Allocation for final solutions
+    // Memory Allocation for solutions
+    m_u = new double[m_Nx * m_Ny];
+    m_v = new double[m_Nx * m_Ny];
+    m_h = new double[m_Nx * m_Ny];
 
     double *fu = new double[m_Nx * m_Ny];
     double *fv = new double[m_Nx * m_Ny];
@@ -438,16 +445,19 @@ void ShallowWater::Solve()
     // Set Initial conditions
     SetInitialConditions(u, v, h);
 
-    // ======================================================
-    // 4th order RK Time Integrations
+    // cout << "u" << endl;
+    // printMatrix(u);
 
-    // Time advancement
-    double time = 0.0; // start time
-    while (time <= m_T)
-    {
-        TimeIntegration(u, v, h, fu, fv, fh);
-        time += m_dt;
-    }
+    // // ======================================================
+    // // 4th order RK Time Integrations
+
+    // // Time advancement
+    // double time = 0.0; // start time
+    // while (time <= m_T)
+    // {
+    //     TimeIntegration(u, v, h, fu, fv, fh);
+    //     time += m_dt;
+    // }
 
     // ======================================================
     // Write to file
@@ -458,10 +468,30 @@ void ShallowWater::Solve()
     {
         for (int i = 0; i < m_Nx; ++i)
         {
-            vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * m_Nx + j] << setw(15) << v[i * m_Nx + j] << setw(15) << h[i * m_Nx + j] << endl;
+            vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << u[i * m_Nx + j] << setw(15) << v[i * m_Nx + j] << setw(15) << h[i * m_Nx + j] << endl;
         }
     }
 
+    // Memory deallocations
+    delete[] u;
+    delete[] v;
+    delete[] h;
+
+    delete[] fu;
+    delete[] fv;
+    delete[] fh;
+}
+
+void ShallowWater::printMatrix(double *A)
+{
+    for (int i = 0; i < m_Nx; i++)
+    {
+        for (int j = 0; j < m_Ny; j++)
+        {
+            cout << A[i * m_Nx + j] << "  ";
+        }
+        cout << endl;
+    }
 }
 
 ShallowWater::~ShallowWater()
