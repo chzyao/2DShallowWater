@@ -47,16 +47,10 @@ void ShallowWater::SetParameters(int argc, char *argv[])
     // Mesh Sizes
     m_dx = 1.0;
     m_dy = 1.0;
-
-    // // Initialise solution fields
-    // m_u = new double[m_Nx * m_Ny];
-    // m_v = new double[m_Nx * m_Ny];
-    // m_h = new double[m_Nx * m_Ny];
 }
 
 void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
 {
-    m_h0 = new double[m_Nx * m_Ny];
     for (int i = 0; i < m_Nx; ++i)
     {
         for (int j = 0; j < m_Ny; ++j)
@@ -426,16 +420,12 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
 
 void ShallowWater::Solve()
 {
-    // Memory Allocation for intermidate step solutions
-    double *u = new double[m_Nx * m_Ny];
-    double *v = new double[m_Nx * m_Ny];
-    double *h = new double[m_Nx * m_Ny];
 
-    // Memory Allocation for final solutions
-    // Memory Allocation for solutions
+    // Memory Allocation for solution fields
     m_u = new double[m_Nx * m_Ny];
     m_v = new double[m_Nx * m_Ny];
     m_h = new double[m_Nx * m_Ny];
+    m_h0 = new double[m_Nx * m_Ny];
 
     double *fu = new double[m_Nx * m_Ny];
     double *fv = new double[m_Nx * m_Ny];
@@ -443,7 +433,7 @@ void ShallowWater::Solve()
 
     //  =====================================================
     // Set Initial conditions
-    SetInitialConditions(u, v, h);
+    SetInitialConditions(m_u, m_v, m_h);
 
     // ======================================================
     // 4th order RK Time Integrations
@@ -452,12 +442,9 @@ void ShallowWater::Solve()
     double time = 0.0; // start time
     while (time <= m_T)
     {
-        TimeIntegration(u, v, h, fu, fv, fh);
+        TimeIntegration(m_u, m_v, m_h, fu, fv, fh);
         time += m_dt;
     }
-
-    // Encapsulate the solution field
-    
 
     // ======================================================
     // Write to file
@@ -468,14 +455,15 @@ void ShallowWater::Solve()
     {
         for (int i = 0; i < m_Nx; ++i)
         {
-            vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << u[i * m_Nx + j] << setw(15) << v[i * m_Nx + j] << setw(15) << h[i * m_Nx + j] << endl;
+            vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Nx + j] << setw(15) << m_v[i * m_Nx + j] << setw(15) << m_h[i * m_Nx + j] << endl;
         }
     }
 
     // Memory deallocations
-    delete[] u;
-    delete[] v;
-    delete[] h;
+    delete[] m_u;
+    delete[] m_v;
+    delete[] m_h;
+    delete[] m_h0;
 
     delete[] fu;
     delete[] fv;
