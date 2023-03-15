@@ -17,10 +17,9 @@ int main(int argc, char *argv[])
     ShallowWater *SWE = new ShallowWater;
     SWE -> SetParameters(argc, argv);
     SWE -> Solve();
-    // cout << SWE->m_dt << endl;
-    // cout << SWE->m_Nx << endl;
-    // cout << SWE->m_ic << endl;
 
+    // Deallocation 
     delete SWE;
+    
     return 0;
 }

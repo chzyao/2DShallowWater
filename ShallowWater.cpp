@@ -445,19 +445,19 @@ void ShallowWater::Solve()
     // Set Initial conditions
     SetInitialConditions(u, v, h);
 
-    // cout << "u" << endl;
-    // printMatrix(u);
+    // ======================================================
+    // 4th order RK Time Integrations
 
-    // // ======================================================
-    // // 4th order RK Time Integrations
+    // Time advancement
+    double time = 0.0; // start time
+    while (time <= m_T)
+    {
+        TimeIntegration(u, v, h, fu, fv, fh);
+        time += m_dt;
+    }
 
-    // // Time advancement
-    // double time = 0.0; // start time
-    // while (time <= m_T)
-    // {
-    //     TimeIntegration(u, v, h, fu, fv, fh);
-    //     time += m_dt;
-    // }
+    // Encapsulate the solution field
+    
 
     // ======================================================
     // Write to file
@@ -482,17 +482,6 @@ void ShallowWater::Solve()
     delete[] fh;
 }
 
-void ShallowWater::printMatrix(double *A)
-{
-    for (int i = 0; i < m_Nx; i++)
-    {
-        for (int j = 0; j < m_Ny; j++)
-        {
-            cout << A[i * m_Nx + j] << "  ";
-        }
-        cout << endl;
-    }
-}
 
 ShallowWater::~ShallowWater()
 {
