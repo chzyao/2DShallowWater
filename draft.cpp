@@ -25,9 +25,9 @@ void printMatrix(int Nx, int Ny, double *A)
 void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
                           int Ny, int ic, double dx, double dy)
 {
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < Ny; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < Nx; ++j)
         {
             // All coded in row-major for now
             u[i * Nx + j] = 0.0;
@@ -66,10 +66,10 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
     {
         double px = 1.0 / dx;
 
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < Nx; ++j)
         {
 
-            for (int i = 0; i < Nx; ++i)
+            for (int i = 0; i < Ny; ++i)
             {
                 deriv[i * Nx + j] =
                     px *
@@ -85,10 +85,10 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
     {
         double py = 1.0 / dy;
 
-        for (int i = 0; i < Nx; ++i)
+        for (int i = 0; i < Ny; ++i)
         {
 
-            for (int j = 0; j < Ny; ++j)
+            for (int j = 0; j < Nx; ++j)
             {
                 deriv[i * Nx + j] =
                     py *
@@ -103,46 +103,31 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
 void SpatialDiscretisation_BLAS(double *u, int Nx, int Ny, double dx, double dy, char dir, double *deriv)
 {
     // Banded matrix specs
-    const int Kl = 6; // mumber of  subdiags
-    const int Ku = 6; // number of superdiags
+    const int Kl = 3; // mumber of  subdiags
+    const int Ku = 3; // number of superdiags
     const int lda = 1 + Kl + Ku;
 
     // coefficient of stencil
     double coeff[7] = {-1.0 / 60.0, 3.0 / 20.0, -3.0 / 4.0, 0.0, 3.0 / 4.0, -3.0 / 20.0, 1.0 / 60.0};
 
-    // Assigning coefficients to the banded matrix
-    double *A = new double[lda * Ny];
-
-    A[0 * Ny + 0] = coeff[2];
-    for (int i = 0; i < Ny; ++i)
-    {
-        A[i * lda + 1] = coeff[1];
-        A[i * lda + 2] = coeff[0];
-        A[i * lda + 3] = coeff[6];
-        A[i * lda + 4] = coeff[5];
-        A[i * lda + 5] = coeff[4];
-        A[i * lda + 6] = coeff[3];
-        A[i * lda + 7] = coeff[2];
-        A[i * lda + 8] = coeff[1];
-        A[i * lda + 9] = coeff[0];
-        A[i * lda + 10] = coeff[6];
-        A[i * lda + 11] = coeff[5];
-    }
-    A[lda * Ny] = coeff[4];
 
     // Discretisation in x-dir ============================================
     if (dir == 'x')
     {
         double px = 1.0 / dx;
 
-        cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, px, A, lda, u, 1, 0.0, deriv, 1);
+        // Assigning coefficients to the banded matrix
+        double *A = new double [lda * Nx];
+
+
     }
 
     // Discretisation in y-dir ============================================
     else if (dir == 'y')
     {
         double py = 1.0 / dy;
-        cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, py, A, lda, u, 1, 0.0, deriv, 1);
+        
+        // Assign coefficients to the banded matrix
     }
 }
 
@@ -158,9 +143,9 @@ void Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
     SpatialDiscretisation(u, Nx, Ny, dx, dy, 'y', deriuy);
     SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', derihx);
 
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < Ny; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < Nx; ++j)
         {
             f[i * Nx + j] = -u[i * Nx + j] * deriux[i * Nx + j] -
                             v[i * Nx + j] * deriuy[i * Nx + j] -
@@ -185,9 +170,9 @@ void Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
     SpatialDiscretisation(v, Nx, Ny, dx, dy, 'y', derivy);
     SpatialDiscretisation(h, Nx, Ny, dx, dy, 'y', derihy);
 
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < Ny; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < Nx; ++j)
         {
             f[i * Nx + j] = -u[i * Nx + j] * derivx[i * Nx + j] -
                             v[i * Nx + j] * derivy[i * Nx + j] -
@@ -209,9 +194,9 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     double *hv = new double[Nx * Ny];
 
     // find hu and hv
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < Ny; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < Nx; ++j)
         {
             hu[i * Nx + j] = h[i * Nx + j] * u[i * Nx + j];
             hv[i * Nx + j] = h[i * Nx + j] * v[i * Nx + j];
@@ -221,9 +206,9 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     SpatialDiscretisation(hu, Nx, Ny, dx, dy, 'x', derihux);
     SpatialDiscretisation(hv, Nx, Ny, dx, dy, 'y', derihvy);
 
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < Ny; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < Nx; ++j)
         {
             f[i * Nx + j] = -derihux[i * Nx + j] - derihvy[i * Nx + j];
         }
@@ -340,13 +325,13 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_dcopy(Nx * Ny, v, 1, tv, 1);
     cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
-    // Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
 
-    Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
-    Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
-    Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
+    // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
+    // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
+    // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k1_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k1_v, 1);
@@ -364,13 +349,13 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
 
     // Evaluate new f
-    // Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
+    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
+    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
+    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k2_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k2_v, 1);
@@ -387,13 +372,13 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
     cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
 
-    // Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
+    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
+    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
+    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k3_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k3_v, 1);
@@ -410,13 +395,13 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
     cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
 
-    // Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
+    Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
+    Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
+    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
+    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
+    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k4_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
@@ -424,9 +409,9 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
 
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution
-    for (int i = 0; i < Nx; ++i)
+    for (int i = 0; i < Ny; ++i)
     {
-        for (int j = 0; j < Ny; ++j)
+        for (int j = 0; j < Nx; ++j)
         {
             u[i * Nx + j] += dt / 6.0 *
                              (k1_u[i * Nx + j] + 2.0 * k2_u[i * Nx + j] +
@@ -550,9 +535,9 @@ int main(int argc, char *argv[])
     // Write initial condition
     ofstream vOut("output.txt", ios::out | ios ::trunc);
     vOut.precision(5);
-    for (int j = 0; j < Ny; ++j)
+    for (int j = 0; j < Nx; ++j)
     {
-        for (int i = 0; i < Nx; ++i)
+        for (int i = 0; i < Ny; ++i)
         {
             vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * Nx + j] << setw(15) << v[i * Nx + j] << setw(15) << h[i * Nx + j] << endl;
         }
