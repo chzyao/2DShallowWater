@@ -51,9 +51,9 @@ void ShallowWater::SetParameters(int argc, char *argv[])
 
 void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
 {
-    for (int i = 0; i < m_Nx; ++i)
+    for (int i = 0; i < m_Ny; ++i)
     {
-        for (int j = 0; j < m_Ny; ++j)
+        for (int j = 0; j < m_Nx; ++j)
         {
             // All coded in row-major for now
             u[i * m_Nx + j] = 0.0;
@@ -91,10 +91,10 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
     {
         double px = 1.0 / m_dx;
 
-        for (int j = 0; j < m_Ny; ++j)
+        for (int j = 0; j < m_Nx; ++j)
         {
 
-            for (int i = 0; i < m_Nx; ++i)
+            for (int i = 0; i < m_Ny; ++i)
             {
                 deriv[i * m_Nx + j] =
                     px *
@@ -110,10 +110,10 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
     {
         double py = 1.0 / m_dy;
 
-        for (int i = 0; i < m_Nx; ++i)
+        for (int i = 0; i < m_Ny; ++i)
         {
 
-            for (int j = 0; j < m_Ny; ++j)
+            for (int j = 0; j < m_Nx; ++j)
             {
                 deriv[i * m_Nx + j] =
                     py *
@@ -136,9 +136,9 @@ void ShallowWater::Evaluate_fu(double *u, double *v, double *h, double *f)
     SpatialDiscretisation(u, 'y', deriuy);
     SpatialDiscretisation(h, 'x', derihx);
 
-    for (int i = 0; i < m_Nx; ++i)
+    for (int i = 0; i < m_Ny; ++i)
     {
-        for (int j = 0; j < m_Ny; ++j)
+        for (int j = 0; j < m_Nx; ++j)
         {
             f[i * m_Nx + j] = -m_u[i * m_Nx + j] * deriux[i * m_Nx + j] -
                               m_v[i * m_Nx + j] * deriuy[i * m_Nx + j] -
@@ -162,9 +162,9 @@ void ShallowWater::Evaluate_fv(double *u, double *v, double *h, double *f)
     SpatialDiscretisation(v, 'y', derivy);
     SpatialDiscretisation(h, 'y', derihy);
 
-    for (int i = 0; i < m_Nx; ++i)
+    for (int i = 0; i < m_Ny; ++i)
     {
-        for (int j = 0; j < m_Ny; ++j)
+        for (int j = 0; j < m_Nx; ++j)
         {
             f[i * m_Nx + j] = -u[i * m_Nx + j] * derivx[i * m_Nx + j] -
                               v[i * m_Nx + j] * derivy[i * m_Nx + j] -
@@ -185,9 +185,9 @@ void ShallowWater::Evaluate_fh(double *u, double *v, double *h, double *f)
     double *hv = new double[m_Nx * m_Ny];
 
     // find hu and hv
-    for (int i = 0; i < m_Nx; ++i)
+    for (int i = 0; i < m_Ny; ++i)
     {
-        for (int j = 0; j < m_Ny; ++j)
+        for (int j = 0; j < m_Nx; ++j)
         {
             hu[i * m_Nx + j] = h[i * m_Nx + j] * u[i * m_Nx + j];
             hv[i * m_Nx + j] = h[i * m_Nx + j] * v[i * m_Nx + j];
@@ -197,9 +197,9 @@ void ShallowWater::Evaluate_fh(double *u, double *v, double *h, double *f)
     SpatialDiscretisation(hu, 'x', derihux);
     SpatialDiscretisation(hv, 'y', derihvy);
 
-    for (int i = 0; i < m_Nx; ++i)
+    for (int i = 0; i < m_Ny; ++i)
     {
-        for (int j = 0; j < m_Ny; ++j)
+        for (int j = 0; j < m_Nx; ++j)
         {
             f[i * m_Nx + j] = -derihux[i * m_Nx + j] - derihvy[i * m_Nx + j];
         }
@@ -385,9 +385,9 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
 
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution
-    for (int i = 0; i < m_Nx; ++i)
+    for (int i = 0; i < m_Ny; ++i)
     {
-        for (int j = 0; j < m_Ny; ++j)
+        for (int j = 0; j < m_Nx; ++j)
         {
             u[i * m_Nx + j] += m_dt / 6.0 *
                                (k1_u[i * m_Nx + j] + 2.0 * k2_u[i * m_Nx + j] +
@@ -451,9 +451,9 @@ void ShallowWater::Solve()
     // Write initial condition
     ofstream vOut("output.txt", ios::out | ios ::trunc);
     vOut.precision(5);
-    for (int j = 0; j < m_Ny; ++j)
+    for (int j = 0; j < m_Nx; ++j)
     {
-        for (int i = 0; i < m_Nx; ++i)
+        for (int i = 0; i < m_Ny; ++i)
         {
             vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Nx + j] << setw(15) << m_v[i * m_Nx + j] << setw(15) << m_h[i * m_Nx + j] << endl;
         }
