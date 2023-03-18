@@ -1,4 +1,5 @@
 #include <boost/program_options.hpp>
+#include <mpi.h>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
@@ -100,34 +101,49 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
     }
 }
 
-void SpatialDiscretisation_BLAS(double *u, int Nx, int Ny, double dx, double dy, char dir, double *deriv)
+void SpatialDiscretisation_BLAS(double *u, int Nx, int Ny, double dx, double dy, char dir, double *A)
 {
     // Banded matrix specs
     const int Kl = 3; // mumber of  subdiags
     const int Ku = 3; // number of superdiags
     const int lda = 1 + Kl + Ku;
 
-    // coefficient of stencil
-    double coeff[7] = {-1.0 / 60.0, 3.0 / 20.0, -3.0 / 4.0, 0.0, 3.0 / 4.0, -3.0 / 20.0, 1.0 / 60.0};
-
-
     // Discretisation in x-dir ============================================
     if (dir == 'x')
     {
         double px = 1.0 / dx;
+        // coefficient of stencil in x-dir
+        double coeff_x[7] = {-1.0 / 60.0 * px, 3.0 / 20.0 * px, -3.0 / 4.0 * px, 0.0, 3.0 / 4.0 * px, -3.0 / 20.0 * px, 1.0 / 60.0 * px};
 
         // Assigning coefficients to the banded matrix
-        double *A = new double [lda * Nx];
+        double *A = new double[lda * Nx];
 
-
+        for (int i = 0; i < Nx; ++i)
+        {
+            for (int j = 0; j < lda; ++j)
+            {
+                A[i * lda + j] = coeff_x[j];
+            }
+        }
     }
 
     // Discretisation in y-dir ============================================
     else if (dir == 'y')
     {
         double py = 1.0 / dy;
-        
-        // Assign coefficients to the banded matrix
+        // coefficient of stencil in y-dir
+        double coeff_y[7] = {1.0 / 60.0 * py, -3.0 / 20.0 * py, 3.0 / 4.0 * py, 0.0, -3.0 / 4.0 * py, 3.0 / 20.0 * py, -1.0 / 60.0 * py};
+
+        // Assigning coefficients to the banded matrix
+        double *A = new double[lda * Ny];
+
+        for (int i = 0; i < Ny; ++i)
+        {
+            for (int j = 0; j < lda; ++j)
+            {
+                A[i * lda + j] = coeff_y[j];
+            }
+        }
     }
 }
 
@@ -220,76 +236,55 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     delete[] hv;
 }
 
-void Evaluate_fu_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
+void Evaluate_f_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
 {
     double g = 9.81;
-    int Kl = 6;
-    int Ku = 6;
-    int lda = 1 + Kl + Ku;
+
+    // Banded matrix specs
+    const int Kl = 3; // mumber of  subdiags
+    const int Ku = 3; // number of superdiags
+    const int lda = 1 + Kl + Ku;
+
+    // Spatial Discretisations ==========================================
     double *deriux = new double[Nx * Ny];
     double *deriuy = new double[Nx * Ny];
     double *derihx = new double[Nx * Ny];
 
-    SpatialDiscretisation_BLAS(u, Nx, Ny, dx, dy, 'x', deriux);
-    SpatialDiscretisation_BLAS(u, Nx, Ny, dx, dy, 'y', deriuy);
-    SpatialDiscretisation_BLAS(h, Nx, Ny, dx, dy, 'x', derihx);
-
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, 1.0, u, lda, deriux, 1, 0.0, f, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, 1.0, v, lda, deriuy, 1, -1.0, f, 1);
-    cblas_daxpy(Nx * Ny, -g, derihx, 1, f, 1);
-
-    delete[] deriux;
-    delete[] deriuy;
-    delete[] derihx;
-}
-
-void Evaluate_fv_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
-{
-    double g = 9.81;
-    int Kl = 6;
-    int Ku = 6;
-    int lda = 1 + Kl + Ku;
     double *derivx = new double[Nx * Ny];
     double *derivy = new double[Nx * Ny];
     double *derihy = new double[Nx * Ny];
 
+    SpatialDiscretisation_BLAS(u, Nx, Ny, dx, dy, 'x', deriux);
+    SpatialDiscretisation_BLAS(u, Nx, Ny, dx, dy, 'y', deriuy);
     SpatialDiscretisation_BLAS(v, Nx, Ny, dx, dy, 'x', derivx);
     SpatialDiscretisation_BLAS(v, Nx, Ny, dx, dy, 'y', derivy);
-    SpatialDiscretisation_BLAS(h, Nx, Ny, dx, dy, 'y', derihy);
-
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, 1.0, u, lda, derivx, 1, 0.0, f, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, 1.0, v, lda, derivy, 1, -1.0, f, 1);
-    cblas_daxpy(Nx * Ny, -g, derihy, 1, f, 1);
-
-    delete[] derivx;
-    delete[] derivy;
-    delete[] derihy;
-}
-
-void Evaluate_fh_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
-{
-    int Kl = 6;
-    int Ku = 6;
-    int lda = 1 + Kl + Ku;
-
-    double *deriux = new double[Nx * Ny];
-    double *derihx = new double[Nx * Ny];
-    double *derivy = new double[Nx * Ny];
-    double *derihy = new double[Nx * Ny];
-
-    SpatialDiscretisation_BLAS(u, Nx, Ny, dx, dy, 'x', deriux);
     SpatialDiscretisation_BLAS(h, Nx, Ny, dx, dy, 'x', derihx);
-    SpatialDiscretisation_BLAS(v, Nx, Ny, dx, dy, 'x', derivy);
     SpatialDiscretisation_BLAS(h, Nx, Ny, dx, dy, 'y', derihy);
 
-    // Find hu and hv
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, 1.0, h, lda, deriux, 1, 0.0, f, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, 1.0, u, lda, derihx, 1, -1.0, f, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, 1.0, h, lda, derivy, 1, -1.0, f, 1);
-    cblas_dgbmv(CblasColMajor, CblasNoTrans, Nx, Ny, Kl, Ku, 1.0, v, lda, derihy, 1, -1.0, f, 1);
+    // Evaluation of fu =================================================
+    for (int j = 0; j < Nx; ++j)
+    {
+        
+    }
 
+
+    // Evaluation of fv =================================================
+
+
+
+
+    // Evaluation of fh =================================================
+
+
+
+
+
+
+    // Deallocations
     delete[] deriux;
+    delete[] deriuy;
     delete[] derihx;
+    delete[] derivx;
     delete[] derivy;
     delete[] derihy;
 }
