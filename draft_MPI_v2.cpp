@@ -356,10 +356,6 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
     Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
 
-    // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
-
     cblas_dcopy(Nx * Ny, fu, 1, k1_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k1_v, 1);
     cblas_dcopy(Nx * Ny, fh, 1, k1_h, 1);
@@ -380,10 +376,6 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
     Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
-
     cblas_dcopy(Nx * Ny, fu, 1, k2_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k2_v, 1);
     cblas_dcopy(Nx * Ny, fh, 1, k2_h, 1);
@@ -402,10 +394,6 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
     Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
     Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
-
-    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(Nx * Ny, fu, 1, k3_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k3_v, 1);
@@ -426,29 +414,25 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
     Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
-
     cblas_dcopy(Nx * Ny, fu, 1, k4_u, 1);
     cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
     cblas_dcopy(Nx * Ny, fh, 1, k4_h, 1);
 
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution
-    for (int i = 0; i < Ny; ++i)
+    for (int i = 0; i < Nx; ++i)
     {
-        for (int j = 0; j < Nx; ++j)
+        for (int j = 0; j < Ny; ++j)
         {
-            u[i * Nx + j] += dt / 6.0 *
-                             (k1_u[i * Nx + j] + 2.0 * k2_u[i * Nx + j] +
-                              2.0 * k3_u[i * Nx + j] + k4_u[i * Nx + j]);
-            v[i * Nx + j] += dt / 6.0 *
-                             (k1_v[i * Nx + j] + 2.0 * k2_v[i * Nx + j] +
-                              2.0 * k3_v[i * Nx + j] + k4_v[i * Nx + j]);
-            h[i * Nx + j] += dt / 6.0 *
-                             (k1_h[i * Nx + j] + 2.0 * k2_h[i * Nx + j] +
-                              2.0 * k3_h[i * Nx + j] + k4_h[i * Nx + j]);
+            u[i * Ny + j] += dt / 6.0 *
+                             (k1_u[i * Ny + j] + 2.0 * k2_u[i * Ny + j] +
+                              2.0 * k3_u[i * Ny + j] + k4_u[i * Ny + j]);
+            v[i * Ny + j] += dt / 6.0 *
+                             (k1_v[i * Ny + j] + 2.0 * k2_v[i * Ny + j] +
+                              2.0 * k3_v[i * Ny + j] + k4_v[i * Ny + j]);
+            h[i * Ny + j] += dt / 6.0 *
+                             (k1_h[i * Ny + j] + 2.0 * k2_h[i * Ny + j] +
+                              2.0 * k3_h[i * Ny + j] + k4_h[i * Ny + j]);
         }
     }
 
