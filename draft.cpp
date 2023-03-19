@@ -1,5 +1,4 @@
 #include <boost/program_options.hpp>
-#include <mpi.h>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
