@@ -51,30 +51,30 @@ void ShallowWater::SetParameters(int argc, char *argv[])
 
 void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
 {
-    for (int i = 0; i < m_Ny; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < m_Nx; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
             // All coded in row-major for now
-            u[i * m_Nx + j] = 0.0;
-            v[i * m_Nx + j] = 0.0;
+            u[i * m_Ny + j] = 0.0;
+            v[i * m_Ny + j] = 0.0;
             if (m_ic == 1)
             {
-                m_h0[i * m_Nx + j] = 10.0 + exp(-(i * m_dx - 50) * (i * m_dx - 50) / 25.0);
+                m_h0[i * m_Ny + j] = 10.0 + exp(-(i * m_dx - 50) * (i * m_dx - 50) / 25.0);
             }
             else if (m_ic == 2)
             {
-                m_h0[i * m_Nx + j] = 10.0 + exp(-(j * m_dy - 50) * (j * m_dy - 50) / 25.0);
+                m_h0[i * m_Ny + j] = 10.0 + exp(-(j * m_dy - 50) * (j * m_dy - 50) / 25.0);
             }
             else if (m_ic == 3)
             {
-                m_h0[i * m_Nx + j] = 10.0 + exp(
+                m_h0[i * m_Ny + j] = 10.0 + exp(
                                                 -((i * m_dx - 50) * (i * m_dx - 50) + (j * m_dy - 50) * (j * m_dy - 50)) /
                                                 25.0);
             }
             else
             {
-                m_h0[i * m_Nx + j] = 10.0 + exp(-((i * m_dx - 25) * (i * m_dx - 25) + (j * m_dy - 25) * (j * m_dy - 25)) / 25.0) +
+                m_h0[i * m_Ny + j] = 10.0 + exp(-((i * m_dx - 25) * (i * m_dx - 25) + (j * m_dy - 25) * (j * m_dy - 25)) / 25.0) +
                                      exp(-((i * m_dx - 75) * (i * m_dx - 75) + (j * m_dy - 75) * (j * m_dy - 75)) / 25.0);
             }
         }
@@ -91,16 +91,15 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
     {
         double px = 1.0 / m_dx;
 
-        for (int j = 0; j < m_Nx; ++j)
+        for (int i = 0; i < m_Nx; ++i)
         {
-
-            for (int i = 0; i < m_Ny; ++i)
+            for (int j = 0; j < m_Ny; ++j)
             {
-                deriv[i * m_Nx + j] =
+                deriv[i * m_Ny + j] =
                     px *
-                    (-u[((i - 3 + m_Nx) % m_Nx) * m_Nx + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + m_Nx) % m_Nx) * m_Nx + j] -
-                     3.0 / 4.0 * u[((i - 1 + m_Nx) % m_Nx) * m_Nx + j] + 3.0 / 4.0 * u[((i + 1) % m_Nx) * m_Nx + j] -
-                     3.0 / 20.0 * u[((i + 2) % m_Nx) * m_Nx + j] + u[((i + 3) % m_Nx) * m_Nx + j] / 60.0);
+                    (-u[((i - 3 + m_Nx) % m_Nx) * m_Ny + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + m_Nx) % m_Nx) * m_Ny + j] -
+                     3.0 / 4.0 * u[((i - 1 + m_Nx) % m_Nx) * m_Ny + j] + 3.0 / 4.0 * u[((i + 1) % m_Nx) * m_Ny + j] -
+                     3.0 / 20.0 * u[((i + 2) % m_Nx) * m_Ny + j] + u[((i + 3) % m_Nx) * m_Ny + j] / 60.0);
             }
         }
     }
@@ -110,16 +109,16 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
     {
         double py = 1.0 / m_dy;
 
-        for (int i = 0; i < m_Ny; ++i)
+        for (int i = 0; i < m_Nx; ++i)
         {
 
-            for (int j = 0; j < m_Nx; ++j)
+            for (int j = 0; j < m_Ny; ++j)
             {
                 deriv[i * m_Nx + j] =
                     py *
-                    (-u[i * m_Nx + (j - 3 + m_Ny) % m_Ny] / 60.0 + 3.0 / 20.0 * u[i * m_Nx + (j - 2 + m_Ny) % m_Ny] -
-                     3.0 / 4.0 * u[i * m_Nx + (j - 1 + m_Ny) % m_Ny] + 3.0 / 4.0 * u[i * m_Nx + (j + 1) % m_Ny] -
-                     3.0 / 20.0 * u[i * m_Nx + (j + 2) % m_Ny] + u[i * m_Nx + (j + 3) % m_Ny] / 60.0);
+                    (-u[i * m_Ny + (j - 3 + m_Ny) % m_Ny] / 60.0 + 3.0 / 20.0 * u[i * m_Ny + (j - 2 + m_Ny) % m_Ny] -
+                     3.0 / 4.0 * u[i * m_Ny + (j - 1 + m_Ny) % m_Ny] + 3.0 / 4.0 * u[i * m_Ny + (j + 1) % m_Ny] -
+                     3.0 / 20.0 * u[i * m_Ny + (j + 2) % m_Ny] + u[i * m_Ny + (j + 3) % m_Ny] / 60.0);
             }
         }
     }
@@ -136,13 +135,13 @@ void ShallowWater::Evaluate_fu(double *u, double *v, double *h, double *f)
     SpatialDiscretisation(u, 'y', deriuy);
     SpatialDiscretisation(h, 'x', derihx);
 
-    for (int i = 0; i < m_Ny; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < m_Nx; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            f[i * m_Nx + j] = -m_u[i * m_Nx + j] * deriux[i * m_Nx + j] -
-                              m_v[i * m_Nx + j] * deriuy[i * m_Nx + j] -
-                              g * derihx[i * m_Nx + j];
+            f[i * m_Ny + j] = -m_u[i * m_Ny + j] * deriux[i * m_Ny + j] -
+                              m_v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
+                              g * derihx[i * m_Ny + j];
         }
     }
 
@@ -162,13 +161,13 @@ void ShallowWater::Evaluate_fv(double *u, double *v, double *h, double *f)
     SpatialDiscretisation(v, 'y', derivy);
     SpatialDiscretisation(h, 'y', derihy);
 
-    for (int i = 0; i < m_Ny; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < m_Nx; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            f[i * m_Nx + j] = -u[i * m_Nx + j] * derivx[i * m_Nx + j] -
-                              v[i * m_Nx + j] * derivy[i * m_Nx + j] -
-                              g * derihy[i * m_Nx + j];
+            f[i * m_Ny + j] = -u[i * m_Ny + j] * derivx[i * m_Ny + j] -
+                              v[i * m_Ny + j] * derivy[i * m_Ny + j] -
+                              g * derihy[i * m_Ny + j];
         }
     }
 
@@ -185,23 +184,23 @@ void ShallowWater::Evaluate_fh(double *u, double *v, double *h, double *f)
     double *hv = new double[m_Nx * m_Ny];
 
     // find hu and hv
-    for (int i = 0; i < m_Ny; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < m_Nx; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            hu[i * m_Nx + j] = h[i * m_Nx + j] * u[i * m_Nx + j];
-            hv[i * m_Nx + j] = h[i * m_Nx + j] * v[i * m_Nx + j];
+            hu[i * m_Ny + j] = h[i * m_Ny + j] * u[i * m_Ny + j];
+            hv[i * m_Ny + j] = h[i * m_Ny + j] * v[i * m_Ny + j];
         }
     }
 
     SpatialDiscretisation(hu, 'x', derihux);
     SpatialDiscretisation(hv, 'y', derihvy);
 
-    for (int i = 0; i < m_Ny; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < m_Nx; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            f[i * m_Nx + j] = -derihux[i * m_Nx + j] - derihvy[i * m_Nx + j];
+            f[i * m_Ny + j] = -derihux[i * m_Ny + j] - derihvy[i * m_Ny + j];
         }
     }
 
@@ -385,19 +384,19 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
 
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution
-    for (int i = 0; i < m_Ny; ++i)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int j = 0; j < m_Nx; ++j)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            u[i * m_Nx + j] += m_dt / 6.0 *
-                               (k1_u[i * m_Nx + j] + 2.0 * k2_u[i * m_Nx + j] +
-                                2.0 * k3_u[i * m_Nx + j] + k4_u[i * m_Nx + j]);
-            v[i * m_Nx + j] += m_dt / 6.0 *
-                               (k1_v[i * m_Nx + j] + 2.0 * k2_v[i * m_Nx + j] +
-                                2.0 * k3_v[i * m_Nx + j] + k4_v[i * m_Nx + j]);
-            h[i * m_Nx + j] += m_dt / 6.0 *
-                               (k1_h[i * m_Nx + j] + 2.0 * k2_h[i * m_Nx + j] +
-                                2.0 * k3_h[i * m_Nx + j] + k4_h[i * m_Nx + j]);
+            u[i * m_Ny + j] += m_dt / 6.0 *
+                               (k1_u[i * m_Ny + j] + 2.0 * k2_u[i * m_Ny + j] +
+                                2.0 * k3_u[i * m_Ny + j] + k4_u[i * m_Ny + j]);
+            v[i * m_Ny + j] += m_dt / 6.0 *
+                               (k1_v[i * m_Ny + j] + 2.0 * k2_v[i * m_Ny + j] +
+                                2.0 * k3_v[i * m_Ny + j] + k4_v[i * m_Ny + j]);
+            h[i * m_Ny + j] += m_dt / 6.0 *
+                               (k1_h[i * m_Ny + j] + 2.0 * k2_h[i * m_Ny + j] +
+                                2.0 * k3_h[i * m_Ny + j] + k4_h[i * m_Ny + j]);
         }
     }
 
@@ -451,11 +450,11 @@ void ShallowWater::Solve()
     // Write initial condition
     ofstream vOut("output.txt", ios::out | ios ::trunc);
     vOut.precision(5);
-    for (int j = 0; j < m_Nx; ++j)
+    for (int i = 0; i < m_Nx; ++i)
     {
-        for (int i = 0; i < m_Ny; ++i)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Nx + j] << setw(15) << m_v[i * m_Nx + j] << setw(15) << m_h[i * m_Nx + j] << endl;
+            vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Ny + j] << setw(15) << m_v[i * m_Ny + j] << setw(15) << m_h[i * m_Ny + j] << endl;
         }
     }
 

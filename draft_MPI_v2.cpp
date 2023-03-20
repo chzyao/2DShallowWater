@@ -118,7 +118,7 @@ void SpatialDiscretisation(double *u, int Nx_loc, int Ny_loc,
     {
         double px = 1.0 / dx;
 
-        for (int i = N_ghosts; i < Nx_loc-N_ghosts; ++i)
+        for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
         {
             for (int j = 0; j < Ny_loc; ++j)
             {
@@ -231,7 +231,6 @@ void LocalBCInfoExchange(double *u_loc, int Nx_loc, int Ny_loc, Local_MPI_Info *
     delete[] recv_south;
 }
 
-
 void Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
                  double dx, double dy, double *f)
 {
@@ -323,7 +322,7 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
 
 void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
                      double dx, double dy, double dt, double *fu,
-                     double *fv, double *fh)
+                     double *fv, double *fh, Local_MPI_Info *local_mpi_info)
 {
     // Solving for u
     double *k1_u = new double[Nx * Ny];
@@ -352,6 +351,11 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_dcopy(Nx * Ny, v, 1, tv, 1);
     cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
+    // Exchange and update local BC between processes
+    LocalBCInfoExchange(u, Nx, Ny, local_mpi_info);
+    LocalBCInfoExchange(v, Nx, Ny, local_mpi_info);
+    LocalBCInfoExchange(h, Nx, Ny, local_mpi_info);
+
     Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu);
     Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
     Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
@@ -370,6 +374,11 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
     cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
     cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
+
+    // Exchange and update local BC between processes
+    LocalBCInfoExchange(tu, Nx, Ny, local_mpi_info);
+    LocalBCInfoExchange(tv, Nx, Ny, local_mpi_info);
+    LocalBCInfoExchange(th, Nx, Ny, local_mpi_info);
 
     // Evaluate new f
     Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
@@ -391,6 +400,11 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
     cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
 
+    // Exchange and update local BC between processes
+    LocalBCInfoExchange(tu, Nx, Ny, local_mpi_info);
+    LocalBCInfoExchange(tv, Nx, Ny, local_mpi_info);
+    LocalBCInfoExchange(th, Nx, Ny, local_mpi_info);
+
     Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
     Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
     Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
@@ -409,6 +423,11 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
     cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
     cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
+
+    // Exchange and update local BC between processes
+    LocalBCInfoExchange(tu, Nx, Ny, local_mpi_info);
+    LocalBCInfoExchange(tv, Nx, Ny, local_mpi_info);
+    LocalBCInfoExchange(th, Nx, Ny, local_mpi_info);
 
     Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
     Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
@@ -482,10 +501,20 @@ void GatherSolutions(double *u_loc, double *v_loc, double *h_loc, int Nx_loc,
         recvcounts = new int[local_mpi_info->world_size]; // each entry: number of elements (local grid size) received from each process
         displs = new int[local_mpi_info->world_size];     //  starting index in received buffer from each process
     }
-    for (int i = 0; i < local_mpi_info->world_size; ++i)
+
+    // Calculate recvcounts and displs for each process
+    for (int rank = 0; rank < local_mpi_info->world_size; ++rank)
     {
-        recvcounts[i] = local_grid_size;
-        displs[i] = i * local_grid_size;
+        int coords[2];
+        MPI_Cart_coords(local_mpi_info->comm, rank, 2, coords);
+
+        int local_rows = (Nx / local_mpi_info->dims[0]) - 2 * N_ghosts;
+        int local_cols = (Ny / local_mpi_info->dims[1]) - 2 * N_ghosts;
+        recvcounts[rank] = local_rows * local_cols;
+
+        int offset_row = coords[0] * local_rows;
+        int offset_col = coords[1] * local_cols;
+        displs[rank] = offset_row * Ny + offset_col;
     }
 
     // Broadcast recvcounts and displs to all processes
@@ -510,9 +539,9 @@ void GatherSolutions(double *u_loc, double *v_loc, double *h_loc, int Nx_loc,
         std::cout << "v_loc value: " << v_loc[send_column_idx] << std::endl;
         std::cout << "h_loc value: " << h_loc[send_column_idx] << std::endl;
 
-        MPI_Gatherv(&u_loc[send_column_idx], 1, no_ghost_column_type, u, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
-        MPI_Gatherv(&v_loc[send_column_idx], 1, no_ghost_column_type, v, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
-        MPI_Gatherv(&h_loc[send_column_idx], 1, no_ghost_column_type, h, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
+        MPI_Gatherv(u_loc, 1, no_ghost_column_type, u, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
+        MPI_Gatherv(v_loc, 1, no_ghost_column_type, v, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
+        MPI_Gatherv(h_loc, 1, no_ghost_column_type, h, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
     }
 
     // Free the new MPI datatype
@@ -601,6 +630,10 @@ int main(int argc, char *argv[])
     double *h_loc = new double[Nx_loc * Ny_loc];
     double *h0_loc = new double[Nx_loc * Ny_loc];
 
+    double *fu_loc = new double[Nx_loc * Ny_loc];
+    double *fv_loc = new double[Nx_loc * Ny_loc];
+    double *fh_loc = new double[Nx_loc * Ny_loc];
+
     // solutions
     double *u = nullptr;
     double *v = nullptr;
@@ -610,6 +643,18 @@ int main(int argc, char *argv[])
     // test for SetInitialConditions
     SetInitialConditions(u_loc, v_loc, h_loc, h0_loc, Nx_loc, Ny_loc,
                          ic, dx, dy, &local_mpi_info);
+
+    // ======================================================
+    // 4th order RK Time Integrations
+
+    // Time advancement
+    double time = 0.0; // start time
+    while (time <= T)
+    {
+        TimeIntegration(u_loc, v_loc, h_loc, Nx_loc, Ny_loc,
+                        dx, dy, dt, fu_loc, fv_loc, fh_loc, &local_mpi_info);
+        time += dt;
+    }
 
     GatherSolutions(u_loc, v_loc, h_loc, Nx_loc, Ny_loc, Nx, Ny, u, v, h, &local_mpi_info);
 
@@ -657,17 +702,6 @@ int main(int argc, char *argv[])
     // // // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
     // // // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
     // // // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
-
-    // // ======================================================
-    // // 4th order RK Time Integrations
-
-    // // Time advancement
-    // double time = 0.0; // start time
-    // while (time <= T)
-    // {
-    //     TimeIntegration(u_local, v_local, h_local, Nx_local, Ny_local, Nx, Ny,
-    //     dx, dy, dt, fu_local, fv_local, fh_local, &local_mpi_info); time += dt;
-    // }
 
     // ======================================================
     // Write to file in root rank
