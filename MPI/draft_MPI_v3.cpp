@@ -18,7 +18,6 @@ void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
     {
         for (int j = 0; j < Ny; ++j)
         {
-            // All coded in row-major for now
             u[i * Ny + j] = 0.0;
             v[i * Ny + j] = 0.0;
             if (ic == 1)
@@ -293,19 +292,19 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
 
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution
-    for (int i = 0; i < Ny; ++i)
+    for (int i = 0; i < Nx; ++i)
     {
-        for (int j = 0; j < Nx; ++j)
+        for (int j = 0; j < Ny; ++j)
         {
-            u[i * Nx + j] += dt / 6.0 *
-                             (k1_u[i * Nx + j] + 2.0 * k2_u[i * Nx + j] +
-                              2.0 * k3_u[i * Nx + j] + k4_u[i * Nx + j]);
-            v[i * Nx + j] += dt / 6.0 *
-                             (k1_v[i * Nx + j] + 2.0 * k2_v[i * Nx + j] +
-                              2.0 * k3_v[i * Nx + j] + k4_v[i * Nx + j]);
-            h[i * Nx + j] += dt / 6.0 *
-                             (k1_h[i * Nx + j] + 2.0 * k2_h[i * Nx + j] +
-                              2.0 * k3_h[i * Nx + j] + k4_h[i * Nx + j]);
+            u[i * Ny + j] += dt / 6.0 *
+                             (k1_u[i * Ny + j] + 2.0 * k2_u[i * Ny + j] +
+                              2.0 * k3_u[i * Ny + j] + k4_u[i * Ny + j]);
+            v[i * Ny + j] += dt / 6.0 *
+                             (k1_v[i * Ny + j] + 2.0 * k2_v[i * Ny + j] +
+                              2.0 * k3_v[i * Ny + j] + k4_v[i * Ny + j]);
+            h[i * Ny + j] += dt / 6.0 *
+                             (k1_h[i * Ny + j] + 2.0 * k2_h[i * Ny + j] +
+                              2.0 * k3_h[i * Ny + j] + k4_h[i * Ny + j]);
         }
     }
 
@@ -383,10 +382,13 @@ int main(int argc, char *argv[])
     //     return 1;
     // }
 
-    std::cout << "Goodbye World" << std::endl;
+    // std::cout << "Goodbye World" << std::endl;
 
     // Subdomain ===============================================
+    int N_ghosts = 3;
     // int Nx_loc = Nx / world_size; // 3 ghost cells each side
+    // int Nx_loc_halo = Nx / world_size + 2 * N_ghosts;
+
 
     // std::cout << "Nx_loc" << Nx_loc << std::endl;
     // std::cout << "Ny_loc" << Ny_loc << std::endl;

@@ -539,9 +539,9 @@ void GatherSolutions(double *u_loc, double *v_loc, double *h_loc, int Nx_loc,
         std::cout << "v_loc value: " << v_loc[send_column_idx] << std::endl;
         std::cout << "h_loc value: " << h_loc[send_column_idx] << std::endl;
 
-        MPI_Gatherv(u_loc, 1, no_ghost_column_type, u, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
-        MPI_Gatherv(v_loc, 1, no_ghost_column_type, v, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
-        MPI_Gatherv(h_loc, 1, no_ghost_column_type, h, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
+        // MPI_Gatherv(u_loc, 1, no_ghost_column_type, u, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
+        // MPI_Gatherv(v_loc, 1, no_ghost_column_type, v, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
+        // MPI_Gatherv(h_loc, 1, no_ghost_column_type, h, recvcounts, displs, no_ghost_column_type, root, local_mpi_info->comm);
     }
 
     // Free the new MPI datatype
