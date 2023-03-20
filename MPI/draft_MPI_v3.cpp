@@ -3,13 +3,96 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-// #include <mpi.h>
+#include <mpi.h>
 #include <cstdlib>
 #include <cblas.h>
 
-
 using namespace std;
 namespace po = boost::program_options;
+
+typedef struct
+{
+    // Store MPI info for each process
+    MPI_Comm comm;
+    int world_rank;
+    int world_size;
+
+    int dims[1];
+    int coords[1];
+    int west_rank;
+    int east_rank;
+
+} Local_MPI_Info;
+
+void StoreMPIInfo(Local_MPI_Info *local_mpi_info, MPI_Comm comm_cartesian, const int *dims)
+{
+    const int ndims = 1;
+    int periods[ndims] = {1};
+    // *local_mpi_info: pointer to the struct Local_MPI_Info
+    local_mpi_info->comm = comm_cartesian;
+    MPI_Comm_size(comm_cartesian, &(local_mpi_info->world_size));
+    MPI_Comm_rank(comm_cartesian, &(local_mpi_info->world_rank));
+
+    // dims info
+    local_mpi_info->dims[0] = dims[0];
+
+    // Retrieve virtual topology info
+    MPI_Cart_get(comm_cartesian, ndims, local_mpi_info->dims, periods,
+                 local_mpi_info->coords);
+
+    // identify neighbouring processes
+    MPI_Cart_shift(local_mpi_info->comm, 0, 1, &(local_mpi_info->west_rank),
+                   &(local_mpi_info->east_rank));
+}
+
+void LocalBCInfoExchange(double *u_loc, int Nx_loc, int Ny, Local_MPI_Info *local_mpi_info)
+{
+    // ghost cells on each side
+    int N_ghosts = 3;
+
+    // buffers for sending and receiving data
+    // x-dir in cartesian grid
+    double *send_west = new double[Ny * N_ghosts];
+    double *recv_west = new double[Ny * N_ghosts];
+    double *send_east = new double[Ny * N_ghosts];
+    double *recv_east = new double[Ny * N_ghosts];
+
+    // Boundary info exchange in x-dir =====================================
+    // send buffer x-dir
+    for (int j = 0; j < Ny; ++j)
+    {
+        for (int k = 0; k < N_ghosts; ++k)
+        {
+            for (int i = N_ghosts; i < 2 * N_ghosts; ++i)
+            {
+                send_west[k * Ny + j] = u_loc[(N_ghosts + k) * Ny + j];
+                send_east[k * Ny + j] = u_loc[(Nx_loc - 2 * N_ghosts + k) * Ny + j];
+            }
+        }
+    }
+
+    // Exchange boundary info
+    MPI_Sendrecv(send_west, Ny * N_ghosts, MPI_DOUBLE, local_mpi_info->west_rank, 0, recv_east, Ny * N_ghosts, MPI_DOUBLE, local_mpi_info->east_rank, 0, local_mpi_info->comm, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(send_east, Ny * N_ghosts, MPI_DOUBLE, local_mpi_info->east_rank, 1, recv_west, Ny * N_ghosts, MPI_DOUBLE, local_mpi_info->west_rank, 1, local_mpi_info->comm, MPI_STATUS_IGNORE);
+
+    // Update boundary info
+    // x-dir
+    for (int j = 0; j < Ny; ++j)
+    {
+        for (int k = 0; k < N_ghosts; ++k)
+        {
+            u_loc[(Nx_loc - 2 * N_ghosts + k) * Ny + j] = recv_east[k * Ny + j];
+            u_loc[(N_ghosts + k) * Ny + j] = recv_west[k * Ny + j];
+        }
+    }
+
+    // Deallocation
+    delete[] send_west;
+    delete[] send_east;
+
+    delete[] recv_west;
+    delete[] recv_east;
+}
 
 void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
                           int Ny, int ic, double dx, double dy)
@@ -88,8 +171,8 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
     }
 }
 
-void Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
-                 double dx, double dy, double *f)
+void Evaluate_fu(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
+                 double dx, double dy, double *f_loc, Local_MPI_Info *local_mpi_info)
 {
     double g = 9.81;
     double *deriux = new double[Nx * Ny];
@@ -100,23 +183,29 @@ void Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
     SpatialDiscretisation(u, Nx, Ny, dx, dy, 'y', deriuy);
     SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', derihx);
 
-    for (int i = 0; i < Nx; ++i)
+    // Find the positions in the global domain for this current rank
+    const int N_ghosts = 3;
+    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
+
+    for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            f[i * Ny + j] = -u[i * Ny + j] * deriux[i * Ny + j] -
-                            v[i * Ny + j] * deriuy[i * Ny + j] -
-                            g * derihx[i * Ny + j];
+            int i_global = x_global + i;
+            cout << i_global << endl;
+            f_loc[i * Ny + j] = -u[i_global * Ny + j] * deriux[i_global * Ny + j] - v[i_global * Ny + j] * deriuy[i_global * Ny + j] - g * derihx[i_global * Ny + j];
         }
     }
+
+    LocalBCInfoExchange(f_loc, Nx_loc, Ny, local_mpi_info);
 
     delete[] deriux;
     delete[] deriuy;
     delete[] derihx;
 }
 
-void Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
-                 double dx, double dy, double *f)
+void Evaluate_fv(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
+                 double dx, double dy, double *f_loc, Local_MPI_Info *local_mpi_info)
 {
     double g = 9.81;
     double *derivx = new double[Nx * Ny];
@@ -127,23 +216,28 @@ void Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
     SpatialDiscretisation(v, Nx, Ny, dx, dy, 'y', derivy);
     SpatialDiscretisation(h, Nx, Ny, dx, dy, 'y', derihy);
 
-    for (int i = 0; i < Nx; ++i)
+    // Find the positions in the global domain for this current rank
+    const int N_ghosts = 3;
+    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
+
+    for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            f[i * Ny + j] = -u[i * Ny + j] * derivx[i * Ny + j] -
-                            v[i * Ny + j] * derivy[i * Ny + j] -
-                            g * derihy[i * Ny + j];
+            int i_global = x_global + i;
+            f_loc[i * Ny + j] = -u[i_global * Ny + j] * derivx[i_global * Ny + j] - v[i_global * Ny + j] * derivy[i_global * Ny + j] - g * derihy[i_global * Ny + j];
         }
     }
+
+    LocalBCInfoExchange(f_loc, Nx_loc, Ny, local_mpi_info);
 
     delete[] derivx;
     delete[] derivy;
     delete[] derihy;
 }
 
-void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
-                 double dx, double dy, double *f)
+void Evaluate_fh(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
+                 double dx, double dy, double *f_loc, Local_MPI_Info *local_mpi_info)
 {
     double *derihux = new double[Nx * Ny];
     double *derihvy = new double[Nx * Ny];
@@ -163,13 +257,20 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     SpatialDiscretisation(hu, Nx, Ny, dx, dy, 'x', derihux);
     SpatialDiscretisation(hv, Nx, Ny, dx, dy, 'y', derihvy);
 
-    for (int i = 0; i < Nx; ++i)
+    // Find the positions in the global domain for this current rank
+    const int N_ghosts = 3;
+    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
+
+    for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            f[i * Ny + j] = -derihux[i * Ny + j] - derihvy[i * Ny + j];
+            int i_global = x_global + i;
+            f_loc[i * Ny + j] = -derihux[i_global * Ny + j] - derihvy[i_global * Ny + j];
         }
     }
+
+    LocalBCInfoExchange(f_loc, Nx_loc, Ny, local_mpi_info);
 
     delete[] derihux;
     delete[] derihvy;
@@ -177,134 +278,138 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     delete[] hv;
 }
 
-void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
-                     double dx, double dy, double dt, double *fu,
-                     double *fv, double *fh)
+void TimeIntegration(double *u, double *v, double *h, int Nx, int Nx_loc,
+                     int Ny, double dx, double dy, double dt, double *fu,
+                     double *fv, double *fh, double *u_loc, double *v_loc, double *h_loc, Local_MPI_Info *local_mpi_info)
 {
     // Solving for u
-    double *k1_u = new double[Nx * Ny];
-    double *k2_u = new double[Nx * Ny];
-    double *k3_u = new double[Nx * Ny];
-    double *k4_u = new double[Nx * Ny];
+    double *k1_u = new double[Nx_loc * Ny];
+    double *k2_u = new double[Nx_loc * Ny];
+    double *k3_u = new double[Nx_loc * Ny];
+    double *k4_u = new double[Nx_loc * Ny];
 
     // Solve for v
-    double *k1_v = new double[Nx * Ny];
-    double *k2_v = new double[Nx * Ny];
-    double *k3_v = new double[Nx * Ny];
-    double *k4_v = new double[Nx * Ny];
+    double *k1_v = new double[Nx_loc * Ny];
+    double *k2_v = new double[Nx_loc * Ny];
+    double *k3_v = new double[Nx_loc * Ny];
+    double *k4_v = new double[Nx_loc * Ny];
 
     // Solve for h
-    double *k1_h = new double[Nx * Ny];
-    double *k2_h = new double[Nx * Ny];
-    double *k3_h = new double[Nx * Ny];
-    double *k4_h = new double[Nx * Ny];
+    double *k1_h = new double[Nx_loc * Ny];
+    double *k2_h = new double[Nx_loc * Ny];
+    double *k3_h = new double[Nx_loc * Ny];
+    double *k4_h = new double[Nx_loc * Ny];
 
-    double *tu = new double[Nx * Ny]; // temp vector t = u
-    double *tv = new double[Nx * Ny]; // temp vector t = v
-    double *th = new double[Nx * Ny]; // temp vector t = h
+    double *tu = new double[Nx_loc * Ny]; // temp vector t = u
+    double *tv = new double[Nx_loc * Ny]; // temp vector t = v
+    double *th = new double[Nx_loc * Ny]; // temp vector t = h
 
     // Calculating k1 = f(yn) ===================================
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1);
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(Nx_loc * Ny, u, 1, tu, 1);
+    cblas_dcopy(Nx_loc * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx_loc * Ny, h, 1, th, 1);
 
-    Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(u, v, h, Nx, Nx_loc, Ny, dx, dy, fu, local_mpi_info);
+    Evaluate_fv(u, v, h, Nx, Nx_loc, Ny, dx, dy, fv, local_mpi_info);
+    Evaluate_fh(u, v, h, Nx, Nx_loc, Ny, dx, dy, fh, local_mpi_info);
 
     // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
     // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny, fu, 1, k1_u, 1);
-    cblas_dcopy(Nx * Ny, fv, 1, k1_v, 1);
-    cblas_dcopy(Nx * Ny, fh, 1, k1_h, 1);
+    cblas_dcopy(Nx_loc * Ny, fu, 1, k1_u, 1);
+    cblas_dcopy(Nx_loc * Ny, fv, 1, k1_v, 1);
+    cblas_dcopy(Nx_loc * Ny, fh, 1, k1_h, 1);
 
     // Calculating k2 = f(yn + dt*k1/2) ==========================
     // reset temp values
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(Nx_loc * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx_loc * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx_loc * Ny, h, 1, th, 1);
 
     // update un to un+dt*k1/2 to evaluate f for k2
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
+    cblas_daxpy(Nx_loc * Ny, dt / 2.0, k1_u, 1, tu, 1);
+    cblas_daxpy(Nx_loc * Ny, dt / 2.0, k1_v, 1, tv, 1);
+    cblas_daxpy(Nx_loc * Ny, dt / 2.0, k1_h, 1, th, 1);
 
     // Evaluate new f
-    Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fu, local_mpi_info);
+    Evaluate_fv(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fv, local_mpi_info);
+    Evaluate_fh(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fh, local_mpi_info);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
     // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny, fu, 1, k2_u, 1);
-    cblas_dcopy(Nx * Ny, fv, 1, k2_v, 1);
-    cblas_dcopy(Nx * Ny, fh, 1, k2_h, 1);
+    cblas_dcopy(Nx_loc * Ny, fu, 1, k2_u, 1);
+    cblas_dcopy(Nx_loc * Ny, fv, 1, k2_v, 1);
+    cblas_dcopy(Nx_loc * Ny, fh, 1, k2_h, 1);
 
     // Calculating k3 = f(yn+dt*k2/2) =============================
     // reset temp values
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(Nx_loc * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx_loc * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx_loc * Ny, h, 1, th, 1);
 
     // update un to un+dt*k2/2 to evaluate f for k3
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
+    cblas_daxpy(Nx_loc * Ny, dt / 2.0, k2_u, 1, tu, 1);
+    cblas_daxpy(Nx_loc * Ny, dt / 2.0, k2_v, 1, tv, 1);
+    cblas_daxpy(Nx_loc * Ny, dt / 2.0, k2_h, 1, th, 1);
 
-    Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fu, local_mpi_info);
+    Evaluate_fv(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fv, local_mpi_info);
+    Evaluate_fh(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fh, local_mpi_info);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
     // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny, fu, 1, k3_u, 1);
-    cblas_dcopy(Nx * Ny, fv, 1, k3_v, 1);
-    cblas_dcopy(Nx * Ny, fh, 1, k3_h, 1);
+    cblas_dcopy(Nx_loc * Ny, fu, 1, k3_u, 1);
+    cblas_dcopy(Nx_loc * Ny, fv, 1, k3_v, 1);
+    cblas_dcopy(Nx_loc * Ny, fh, 1, k3_h, 1);
 
     // k4 = f(yn+dt*k3) ===========================================
     // reset temp values
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(Nx_loc * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx_loc * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx_loc * Ny, h, 1, th, 1);
 
     // update un to un+dt*k2/2 to evaluate f for k3
-    cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
+    cblas_daxpy(Nx_loc * Ny, dt, k3_u, 1, tu, 1);
+    cblas_daxpy(Nx_loc * Ny, dt, k3_v, 1, tv, 1);
+    cblas_daxpy(Nx_loc * Ny, dt, k3_h, 1, th, 1);
 
-    Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu);
-    Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv);
-    Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh);
+    Evaluate_fu(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fu, local_mpi_info);
+    Evaluate_fv(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fv, local_mpi_info);
+    Evaluate_fh(tu, tv, th, Nx, Nx_loc, Ny, dx, dy, fh, local_mpi_info);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
     // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny, fu, 1, k4_u, 1);
-    cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
-    cblas_dcopy(Nx * Ny, fh, 1, k4_h, 1);
+    cblas_dcopy(Nx_loc * Ny, fu, 1, k4_u, 1);
+    cblas_dcopy(Nx_loc * Ny, fv, 1, k4_v, 1);
+    cblas_dcopy(Nx_loc * Ny, fh, 1, k4_h, 1);
 
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution
-    for (int i = 0; i < Nx; ++i)
+    const int N_ghosts = 3;
+    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
+
+    for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            u[i * Ny + j] += dt / 6.0 *
-                             (k1_u[i * Ny + j] + 2.0 * k2_u[i * Ny + j] +
-                              2.0 * k3_u[i * Ny + j] + k4_u[i * Ny + j]);
-            v[i * Ny + j] += dt / 6.0 *
-                             (k1_v[i * Ny + j] + 2.0 * k2_v[i * Ny + j] +
-                              2.0 * k3_v[i * Ny + j] + k4_v[i * Ny + j]);
-            h[i * Ny + j] += dt / 6.0 *
-                             (k1_h[i * Ny + j] + 2.0 * k2_h[i * Ny + j] +
-                              2.0 * k3_h[i * Ny + j] + k4_h[i * Ny + j]);
+            u_loc[i * Ny + j] += dt / 6.0 *
+                                 (k1_u[i * Ny + j] + 2.0 * k2_u[i * Ny + j] +
+                                  2.0 * k3_u[i * Ny + j] + k4_u[i * Ny + j]);
+            v_loc[i * Ny + j] += dt / 6.0 *
+                                 (k1_v[i * Ny + j] + 2.0 * k2_v[i * Ny + j] +
+                                  2.0 * k3_v[i * Ny + j] + k4_v[i * Ny + j]);
+            h_loc[i * Ny + j] += dt / 6.0 *
+                                 (k1_h[i * Ny + j] + 2.0 * k2_h[i * Ny + j] +
+                                  2.0 * k3_h[i * Ny + j] + k4_h[i * Ny + j]);
+            // cout << h_loc[i * Ny + j] << endl;
         }
     }
 
@@ -323,6 +428,45 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
     delete[] k2_h;
     delete[] k3_h;
     delete[] k4_h;
+}
+
+void CollectSolutions(double *u_loc, double *v_loc, double *h_loc, int Nx_loc, double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, Local_MPI_Info *local_mpi_info)
+{
+    const int N_ghosts = 3;
+    const int root = 0;
+    int *recvcounts = new int[local_mpi_info->world_size];
+    int *displs = new int[local_mpi_info->world_size];
+
+    int local_size = (Nx_loc - 2 * N_ghosts) * Ny;
+    for (int i = 0; i < local_mpi_info->world_size; ++i)
+    {
+        recvcounts[i] = local_size;
+        displs[i] = i * local_size;
+    }
+    if (local_mpi_info->world_rank == 0) // Allocate memory only for the root process
+    {
+        u = new double[Nx * Ny];
+        v = new double[Nx * Ny];
+        h = new double[Nx * Ny];
+    }
+    MPI_Gatherv(u_loc, local_size, MPI_DOUBLE, u, recvcounts, displs, MPI_DOUBLE, root, local_mpi_info->comm);
+    MPI_Gatherv(v_loc, local_size, MPI_DOUBLE, v, recvcounts, displs, MPI_DOUBLE, root, local_mpi_info->comm);
+    MPI_Gatherv(h_loc, local_size, MPI_DOUBLE, h, recvcounts, displs, MPI_DOUBLE, root, local_mpi_info->comm);
+
+    if (local_mpi_info->world_rank == root)
+    {
+        // Write to file
+
+        ofstream vOut("output.txt", ios::out | ios ::trunc);
+        vOut.precision(5);
+        for (int i = 0; i < Nx; ++i)
+        {
+            for (int j = 0; j < Ny; ++j)
+            {
+                vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * Ny + j] << setw(15) << v[i * Ny + j] << setw(15) << h[i * Ny + j] << endl;
+            }
+        }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -368,27 +512,37 @@ int main(int argc, char *argv[])
     double *h0 = new double[Nx * Ny];
 
     // MPI =====================================================
-    // MPI_Init(&argc, &argv);
-    // const int root = 0; // root rank
+    MPI_Init(&argc, &argv);
+    const int root = 0; // root rank
 
-    // // Get size and rank
-    // int world_rank, world_size, retval_rank, retval_size;
-    // retval_rank = MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    // retval_size = MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    // Get size and rank
+    int world_rank, world_size, retval_rank, retval_size;
+    retval_rank = MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    retval_size = MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    // if (retval_rank == MPI_ERR_COMM || retval_size == MPI_ERR_COMM)
-    // {
-    //     std::cout << "Invalid communicator" << std::endl;
-    //     return 1;
-    // }
+    if (retval_rank == MPI_ERR_COMM || retval_size == MPI_ERR_COMM)
+    {
+        std::cout << "Invalid communicator" << std::endl;
+        return 1;
+    }
 
-    // std::cout << "Goodbye World" << std::endl;
+    std::cout << "Goodbye World" << std::endl;
 
     // Subdomain ===============================================
-    int N_ghosts = 3;
-    // int Nx_loc = Nx / world_size; // 3 ghost cells each side
-    // int Nx_loc_halo = Nx / world_size + 2 * N_ghosts;
+    // Cartesian Topology
+    const int ndims = 1;
+    int dims[ndims] = {0};
+    int periods[ndims] = {1};
+    MPI_Comm comm_cartesian;
+    MPI_Dims_create(world_size, ndims, dims); // automatic division in grid
+    MPI_Cart_create(MPI_COMM_WORLD, ndims, dims, periods, 1, &comm_cartesian);
 
+    // Store MPI Information
+    Local_MPI_Info local_mpi_info;
+    StoreMPIInfo(&local_mpi_info, comm_cartesian, dims);
+
+    int Nx_loc = Nx / dims[0] + 6; // 3 ghost cells each side
+    cout << Nx_loc << endl;
 
     // std::cout << "Nx_loc" << Nx_loc << std::endl;
     // std::cout << "Ny_loc" << Ny_loc << std::endl;
@@ -399,53 +553,71 @@ int main(int argc, char *argv[])
     // double *h_loc = new double[Nx_loc * Ny_loc];
     // double *h0_loc = new double[Nx_loc * Ny_loc];
 
-    // double *fu_loc = new double[Nx_loc * Ny_loc];
-    // double *fv_loc = new double[Nx_loc * Ny_loc];
-    // double *fh_loc = new double[Nx_loc * Ny_loc];
+    double *fu_loc = new double[Nx_loc * Ny];
+    double *fv_loc = new double[Nx_loc * Ny];
+    double *fh_loc = new double[Nx_loc * Ny];
+
+    double *u_loc = new double[Nx_loc * Ny];
+    double *v_loc = new double[Nx_loc * Ny];
+    double *h_loc = new double[Nx_loc * Ny];
+
+    double *u_global = nullptr;
+    double *v_global = nullptr;
+    double *h_global = nullptr;
+
+    // // Collecting results
+    // if (world_rank == root)
+    // {
+    //     u_global = new double[Nx * Ny];
+    //     v_global = new double[Nx * Ny];
+    //     h_global = new double[Nx * Ny];
+    // }
 
     // ======================================================
     // test for SetInitialConditions
     SetInitialConditions(u, v, h, h0, Nx, Ny, ic, dx, dy);
 
-    // // debug output
-    // cout << "====== h ======" << endl;
-    // printMatrix(Nx,Ny,h);
+    // // // debug output
+    // // cout << "====== h ======" << endl;
+    // // printMatrix(Nx,Ny,h);
 
     // ======================================================
     // test for evaluating f
-    double *fu = new double[Nx * Ny];
-    double *fv = new double[Nx * Ny];
-    double *fh = new double[Nx * Ny];
+    double *fu = new double[Nx_loc * Ny];
+    double *fv = new double[Nx_loc * Ny];
+    double *fh = new double[Nx_loc * Ny];
+
+    Evaluate_fu(u, v, h, Nx, Nx_loc, Ny, dx, dy, fu_loc, &local_mpi_info);
+    Evaluate_fv(u, v, h, Nx, Nx_loc, Ny, dx, dy, fv_loc, &local_mpi_info);
+    Evaluate_fh(u, v, h, Nx, Nx_loc, Ny, dx, dy, fh_loc, &local_mpi_info);
 
     // ======================================================
     // 4th order RK Time Integrations
-
     // Time advancement
     double time = 0.0; // start time
-    while (time <= T)
+    while (time <= 1)
     {
-        TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
+        TimeIntegration(u, v, h, Nx, Nx_loc, Ny, dx, dy, dt, fu_loc, fv_loc, fh_loc, u_loc, v_loc, h_loc, &local_mpi_info);
         time += dt;
     }
 
-    ofstream vOut("output.txt", ios::out | ios ::trunc);
-    vOut.precision(5);
-    for (int j = 0; j < Nx; ++j)
-    {
-        for (int i = 0; i < Ny; ++i)
-        {
-            vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * Nx + j] << setw(15) << v[i * Nx + j] << setw(15) << h[i * Nx + j] << endl;
-        }
-    }
+    CollectSolutions(u_loc, v_loc, h_loc, Nx_loc, u_global, v_global, h_global, Nx, Ny, dx, dy, &local_mpi_info);
 
     // deallocations
     delete[] u;
     delete[] v;
     delete[] h;
-    delete[] h0;
-    delete[] fu;
-    delete[] fv;
-    delete[] fh;
+    delete[] u_loc;
+    delete[] v_loc;
+    delete[] h_loc;
+    delete[] fu_loc;
+    delete[] fv_loc;
+    delete[] fh_loc;
+
+    // delete[] h0;
+    // delete[] fu;
+    // delete[] fv;
+    // delete[] fh;
 
     // delete[] u;
     // delete[] v;
@@ -468,31 +640,13 @@ int main(int argc, char *argv[])
     // // // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
     // // // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
 
-    // ======================================================
-    // Write to file in root rank
-    // Write initial condition
-    // if (world_rank == root)
-    // {
-    //     ofstream vOut("output.txt", ios::out | ios ::trunc);
-    //     vOut.precision(5);
-    //     for (int j = 0; j < Nx; ++j)
-    //     {
-    //         for (int i = 0; i < Ny; ++i)
-    //         {
-    //             vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * Nx + j] << setw(15) << v[i * Nx + j] << setw(15) << h[i * Nx + j]
-    //                  << endl;
-    //         }
-    //     }
-    // }
-
     // // deallocations
     // delete[] u;
     // delete[] v;
     // delete[] h;
     // delete[] h0;
-    // delete[] fu;
-    // delete[] fv;
-    // delete[] fh;
 
+    MPI_Comm_free(&comm_cartesian);
+    MPI_Finalize();
     return 0;
 }
