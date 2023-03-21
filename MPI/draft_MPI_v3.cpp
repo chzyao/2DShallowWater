@@ -99,17 +99,22 @@ void LocalBCInfoExchange(double *u_loc, int Nx_loc, int Ny, Local_MPI_Info *loca
 }
 
 void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
-                          int Ny, int ic, double dx, double dy)
+                          int Ny, int Nx_loc, int ic, double dx, double dy, Local_MPI_Info *local_mpi_info)
 {
-    for (int i = 0; i < Nx; ++i)
+    // Find the positions in the global domain for this current rank
+    const int N_ghosts = 3;
+    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
+
+    for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
+        int i_global = x_global + i;
         for (int j = 0; j < Ny; ++j)
         {
             u[i * Ny + j] = 0.0;
             v[i * Ny + j] = 0.0;
             if (ic == 1)
             {
-                h0[i * Ny + j] = 10.0 + exp(-(i * dx - 50) * (i * dx - 50) / 25.0);
+                h0[i * Ny + j] = 10.0 + exp(-(i_global * dx - 50) * (i_global * dx - 50) / 25.0);
             }
             else if (ic == 2)
             {
@@ -118,13 +123,13 @@ void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
             else if (ic == 3)
             {
                 h0[i * Ny + j] = 10.0 + exp(
-                                            -((i * dx - 50) * (i * dx - 50) + (j * dy - 50) * (j * dy - 50)) /
+                                            -((i_global * dx - 50) * (i_global * dx - 50) + (j * dy - 50) * (j * dy - 50)) /
                                             25.0);
             }
             else
             {
-                h0[i * Ny + j] = 10.0 + exp(-((i * dx - 25) * (i * dx - 25) + (j * dy - 25) * (j * dy - 25)) / 25.0) +
-                                 exp(-((i * dx - 75) * (i * dx - 75) + (j * dy - 75) * (j * dy - 75)) / 25.0);
+                h0[i * Ny + j] = 10.0 + exp(-((i_global * dx - 25) * (i_global * dx - 25) + (j * dy - 25) * (j * dy - 25)) / 25.0) +
+                                 exp(-((i_global * dx - 75) * (i_global * dx - 75) + (j * dy - 75) * (j * dy - 75)) / 25.0);
             }
         }
     }
@@ -145,14 +150,13 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, int Nx_loc, double dx, dou
 
         for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
         {
-            int i_global = x_global + i;
             for (int j = 0; j < Ny; ++j)
             {
                 deriv_loc[i * Ny + j] =
                     px *
-                    (-u[(i_global - 3) * Ny + j] / 60.0 + 3.0 / 20.0 * u[(i_global - 2) * Ny + j] -
-                     3.0 / 4.0 * u[(i_global - 1) * Ny + j] + 3.0 / 4.0 * u[(i_global + 1) * Ny + j] -
-                     3.0 / 20.0 * u[(i_global + 2) * Ny + j] + u[(i_global + 3) * Ny + j] / 60.0);
+                    (-u[(i - 3) * Ny + j] / 60.0 + 3.0 / 20.0 * u[(i - 2) * Ny + j] -
+                     3.0 / 4.0 * u[(i - 1) * Ny + j] + 3.0 / 4.0 * u[(i + 1) * Ny + j] -
+                     3.0 / 20.0 * u[(i + 2) * Ny + j] + u[(i + 3) * Ny + j] / 60.0);
             }
         }
     }
@@ -164,14 +168,13 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, int Nx_loc, double dx, dou
 
         for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
         {
-            int i_global = x_global + i;
             for (int j = 0; j < Ny; ++j)
             {
                 deriv_loc[i * Ny + j] =
                     py *
-                    (-u[i_global * Ny + (j - 3)] / 60.0 + 3.0 / 20.0 * u[i_global * Ny + (j - 2)] -
-                     3.0 / 4.0 * u[i_global * Ny + (j - 1)] + 3.0 / 4.0 * u[i_global * Ny + (j + 1)] -
-                     3.0 / 20.0 * u[i_global * Ny + (j + 2)] + u[i_global * Ny + (j + 3)] / 60.0);
+                    (-u[i * Ny + (j - 3)] / 60.0 + 3.0 / 20.0 * u[i * Ny + (j - 2)] -
+                     3.0 / 4.0 * u[i * Ny + (j - 1)] + 3.0 / 4.0 * u[i * Ny + (j + 1)] -
+                     3.0 / 20.0 * u[i * Ny + (j + 2)] + u[i * Ny + (j + 3)] / 60.0);
             }
         }
     }
@@ -251,7 +254,7 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
     {
         for (int j = 0; j < Ny; ++j)
         {
-            f_loc[i * Ny + j] = -h[i * Ny + j]*deriux[i * Ny + j]- u[i * Ny + j]*derihx[i * Ny + j]-h[i * Ny + j]*derivy[i * Ny + j]-v[i * Ny + j]*derihy[i * Ny + j];
+            f_loc[i * Ny + j] = -h[i * Ny + j] * deriux[i * Ny + j] - u[i * Ny + j] * derihx[i * Ny + j] - h[i * Ny + j] * derivy[i * Ny + j] - v[i * Ny + j] * derihy[i * Ny + j];
         }
     }
 
@@ -392,7 +395,6 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Nx_loc,
             h_loc[i * Ny + j] += dt / 6.0 *
                                  (k1_h[i * Ny + j] + 2.0 * k2_h[i * Ny + j] +
                                   2.0 * k3_h[i * Ny + j] + k4_h[i * Ny + j]);
-            // cout << h_loc[i * Ny + j] << endl;
         }
     }
 
@@ -489,12 +491,6 @@ int main(int argc, char *argv[])
     const double dx = 1.0;
     const double dy = 1.0;
 
-    // Allocate solution memories
-    double *u = new double[Nx * Ny];
-    double *v = new double[Nx * Ny];
-    double *h = new double[Nx * Ny];
-    double *h0 = new double[Nx * Ny];
-
     // MPI =====================================================
     MPI_Init(&argc, &argv);
     const int root = 0; // root rank
@@ -536,6 +532,11 @@ int main(int argc, char *argv[])
     // double *v_loc = new double[Nx_loc * Ny_loc];
     // double *h_loc = new double[Nx_loc * Ny_loc];
     // double *h0_loc = new double[Nx_loc * Ny_loc];
+    // Allocate solution memories
+    double *u = new double[Nx_loc * Ny];
+    double *v = new double[Nx_loc * Ny];
+    double *h = new double[Nx_loc * Ny];
+    double *h0 = new double[Nx_loc * Ny];
 
     double *fu_loc = new double[Nx_loc * Ny];
     double *fv_loc = new double[Nx_loc * Ny];
@@ -559,7 +560,9 @@ int main(int argc, char *argv[])
 
     // ======================================================
     // test for SetInitialConditions
-    SetInitialConditions(u, v, h, h0, Nx, Ny, ic, dx, dy);
+    SetInitialConditions(u, v, h, h0, Nx, Ny, Nx_loc, ic, dx, dy, &local_mpi_info);
+
+    // CollectSolutions(u, v, h, Nx_loc, u_global, v_global, h_global, Nx, Ny, dx, dy, &local_mpi_info);
 
     // // // debug output
     // // cout << "====== h ======" << endl;
