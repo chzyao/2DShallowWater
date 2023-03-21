@@ -608,7 +608,7 @@ int main(int argc, char *argv[])
         time += dt;
     }
 
-    CollectSolutions(u_loc, v_loc, h_loc, Nx_loc, u_global, v_global, h_global, Nx, Ny, dx, dy, &local_mpi_info);
+    // CollectSolutions(u_loc, v_loc, h_loc, Nx_loc, u_global, v_global, h_global, Nx, Ny, dx, dy, &local_mpi_info);
 
     // deallocations
     delete[] u;
