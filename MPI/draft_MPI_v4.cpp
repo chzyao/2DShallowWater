@@ -88,7 +88,7 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
 }
 
 void Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
-                 double dx, double dy, double *f, int world_size, int world_rank)
+                 double dx, double dy, double *f_loc, int world_size, int world_rank)
 {
     double g = 9.81;
     double *deriux = new double[Nx * Ny];
@@ -101,15 +101,16 @@ void Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
 
     // For MPI: size of f: Nx * (Ny_loc)
     int Ny_loc = Ny / world_size;
+
     for (int i = 0; i < Nx; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            for (int k = world_rank * Ny_loc; k < 2 * world_rank * Ny_loc; ++k)
+            for (int k = world_rank * Ny_loc; k < world_rank * Ny_loc + Ny_loc; ++k)
             {
-                f[i * Ny_loc + k] = -u[i * Ny_loc + k] * deriux[i * Ny + j] -
-                                    v[i * Ny_loc + k] * deriuy[i * Ny + j] -
-                                    g * derihx[i * Ny + j];
+                f_loc[i * Ny_loc + k] = -u[i * Ny_loc + k] * deriux[i * Ny + j] -
+                                        v[i * Ny_loc + k] * deriuy[i * Ny + j] -
+                                        g * derihx[i * Ny + j];
             }
         }
     }
@@ -120,7 +121,7 @@ void Evaluate_fu(double *u, double *v, double *h, int Nx, int Ny,
 }
 
 void Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
-                 double dx, double dy, double *f, int world_size, int world_rank)
+                 double dx, double dy, double *f_loc, int world_size, int world_rank)
 {
     double g = 9.81;
     double *derivx = new double[Nx * Ny];
@@ -137,11 +138,11 @@ void Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
     {
         for (int j = 0; j < Ny; ++j)
         {
-            for (int k = world_rank * Ny_loc; k < 2 * world_rank * Ny_loc; ++k)
+            for (int k = world_rank * Ny_loc; k < world_rank * Ny_loc + Ny_loc; ++k)
             {
-                f[i * Ny_loc + k] = -u[i * Ny_loc + k] * derivx[i * Ny + j] -
-                                    v[i * Ny_loc + j] * derivy[i * Ny + j] -
-                                    g * derihy[i * Ny + j];
+                f_loc[i * Ny_loc + k] = -u[i * Ny_loc + k] * derivx[i * Ny + j] -
+                                        v[i * Ny_loc + j] * derivy[i * Ny + j] -
+                                        g * derihy[i * Ny + j];
             }
         }
     }
@@ -152,7 +153,7 @@ void Evaluate_fv(double *u, double *v, double *h, int Nx, int Ny,
 }
 
 void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
-                 double dx, double dy, double *f, int world_size, int world_rank)
+                 double dx, double dy, double *f_loc, int world_size, int world_rank)
 {
     double *deriux = new double[Nx * Ny];
     double *derihx = new double[Nx * Ny];
@@ -170,9 +171,9 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     {
         for (int j = 0; j < Ny; ++j)
         {
-            for (int k = world_rank * Ny_loc; k < 2 * world_rank * Ny_loc; ++k)
+            for (int k = world_rank * Ny_loc; k < world_rank * Ny_loc + Ny_loc; ++k)
             {
-                f[i * Ny_loc + k] = -h[i * Ny_loc + k] * deriux[i * Ny + j] - u[i * Ny_loc + k] * derihx[i * Ny + j] - h[i * Ny_loc + k] * derivy[i * Ny + j] - v[i * Ny_loc + k] * derihy[i * Ny + j];
+                f_loc[i * Ny_loc + k] = -h[i * Ny_loc + k] * deriux[i * Ny + j] - u[i * Ny_loc + k] * derihx[i * Ny + j] - h[i * Ny_loc + k] * derivy[i * Ny + j] - v[i * Ny_loc + k] * derihy[i * Ny + j];
             }
         }
     }
@@ -183,65 +184,87 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     delete[] derihy;
 }
 
-void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny, int Ny_loc, double dx, double dy, double dt, double *fu, double *fv, double *fh, int world_size, int world_rank)
+void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny, int Ny_loc, double dx, double dy, double dt, double *fu_loc, double *fv_loc, double *fh_loc, int world_size, int world_rank)
 {
     const int root = 0;
-    // Solving for u
-    double *k1_u = new double[Nx * Ny_loc];
-    double *k2_u = new double[Nx * Ny_loc];
-    double *k3_u = new double[Nx * Ny_loc];
-    double *k4_u = new double[Nx * Ny_loc];
+
+    // Solve for u
+    double *k1_u = new double[Nx * Ny];
+    double *k2_u = new double[Nx * Ny];
+    double *k3_u = new double[Nx * Ny];
+    double *k4_u = new double[Nx * Ny];
 
     // Solve for v
-    double *k1_v = new double[Nx * Ny_loc];
-    double *k2_v = new double[Nx * Ny_loc];
-    double *k3_v = new double[Nx * Ny_loc];
-    double *k4_v = new double[Nx * Ny_loc];
+    double *k1_v = new double[Nx * Ny];
+    double *k2_v = new double[Nx * Ny];
+    double *k3_v = new double[Nx * Ny];
+    double *k4_v = new double[Nx * Ny];
 
     // Solve for h
-    double *k1_h = new double[Nx * Ny_loc];
-    double *k2_h = new double[Nx * Ny_loc];
-    double *k3_h = new double[Nx * Ny_loc];
-    double *k4_h = new double[Nx * Ny_loc];
+    double *k1_h = new double[Nx * Ny];
+    double *k2_h = new double[Nx * Ny];
+    double *k3_h = new double[Nx * Ny];
+    double *k4_h = new double[Nx * Ny];
 
-    double *tu = new double[Nx * Ny_loc]; // temp vector t = u
-    double *tv = new double[Nx * Ny_loc]; // temp vector t = v
-    double *th = new double[Nx * Ny_loc]; // temp vector t = h
+    double *tu = new double[Nx * Ny]; // temp vector t = u
+    double *tv = new double[Nx * Ny]; // temp vector t = v
+    double *th = new double[Nx * Ny]; // temp vector t = h
 
-    // k1, k2, k3, k4 calculated locally and then gather before the for loop
+    double *fu = new double[Nx * Ny];
+    double *fv = new double[Nx * Ny];
+    double *fh = new double[Nx * Ny];
+
+    // since f terms are calulated locally, we gather them
 
     // Calculating k1 = f(yn) ===================================
-    cblas_dcopy(Nx * Ny_loc, u, 1, tu, 1);
-    cblas_dcopy(Nx * Ny_loc, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny_loc, h, 1, th, 1);
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1);
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
-    Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu, world_size, world_rank);
-    Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv, world_size, world_rank);
-    Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh, world_size, world_rank);
+    MPI_Barrier(MPI_COMM_WORLD);
 
+    Evaluate_fu(u, v, h, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
+    Evaluate_fv(u, v, h, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
+    Evaluate_fh(u, v, h, Nx, Ny, dx, dy, fh_loc, world_size, world_rank);
+
+    // Gather global fu, fv, fh data
+    MPI_Allgather(fu_loc, Nx * Ny_loc, MPI_DOUBLE, fu, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgather(fv_loc, Nx * Ny_loc, MPI_DOUBLE, fv, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgather(fh_loc, Nx * Ny_loc, MPI_DOUBLE, fh, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+
+    MPI_Barrier(MPI_COMM_WORLD);
     // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
     // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny_loc, fu, 1, k1_u, 1);
-    cblas_dcopy(Nx * Ny_loc, fv, 1, k1_v, 1);
-    cblas_dcopy(Nx * Ny_loc, fh, 1, k1_h, 1);
+    cblas_dcopy(Nx * Ny, fu, 1, k1_u, 1);
+    cblas_dcopy(Nx * Ny, fv, 1, k1_v, 1);
+    cblas_dcopy(Nx * Ny, fh, 1, k1_h, 1);
 
     // Calculating k2 = f(yn + dt*k1/2) ==========================
     // reset temp values
-    cblas_dcopy(Nx * Ny_loc, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny_loc, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny_loc, h, 1, th, 1);
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
     // update un to un+dt*k1/2 to evaluate f for k2
-    cblas_daxpy(Nx * Ny_loc, dt / 2.0, k1_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny_loc, dt / 2.0, k1_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny_loc, dt / 2.0, k1_h, 1, th, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // Evaluate new f
-    Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu, world_size, world_rank);
-    Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv, world_size, world_rank);
-    Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh, world_size, world_rank);
+    Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
+    Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
+    Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh_loc, world_size, world_rank);
+
+    // Gather global fu, fv, fh data
+    MPI_Allgather(fu_loc, Nx * Ny_loc, MPI_DOUBLE, fu, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgather(fv_loc, Nx * Ny_loc, MPI_DOUBLE, fv, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgather(fh_loc, Nx * Ny_loc, MPI_DOUBLE, fh, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
@@ -253,74 +276,95 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny, int Ny_loc
 
     // Calculating k3 = f(yn+dt*k2/2) =============================
     // reset temp values
-    cblas_dcopy(Nx * Ny_loc, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny_loc, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny_loc, h, 1, th, 1);
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
     // update un to un+dt*k2/2 to evaluate f for k3
-    cblas_daxpy(Nx * Ny_loc, dt / 2.0, k2_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny_loc, dt / 2.0, k2_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny_loc, dt / 2.0, k2_h, 1, th, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
 
     Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu, world_size, world_rank);
     Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv, world_size, world_rank);
     Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh, world_size, world_rank);
 
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // Gather global fu, fv, fh data
+    MPI_Allgather(fu_loc, Nx * Ny_loc, MPI_DOUBLE, fu, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgather(fv_loc, Nx * Ny_loc, MPI_DOUBLE, fv, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgather(fh_loc, Nx * Ny_loc, MPI_DOUBLE, fh, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
     // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny_loc, fu, 1, k3_u, 1);
-    cblas_dcopy(Nx * Ny_loc, fv, 1, k3_v, 1);
-    cblas_dcopy(Nx * Ny_loc, fh, 1, k3_h, 1);
+    cblas_dcopy(Nx * Ny, fu, 1, k3_u, 1);
+    cblas_dcopy(Nx * Ny, fv, 1, k3_v, 1);
+    cblas_dcopy(Nx * Ny, fh, 1, k3_h, 1);
 
     // k4 = f(yn+dt*k3) ===========================================
     // reset temp values
-    cblas_dcopy(Nx * Ny_loc, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny_loc, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny_loc, h, 1, th, 1);
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
     // update un to un+dt*k2/2 to evaluate f for k3
-    cblas_daxpy(Nx * Ny_loc, dt, k3_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny_loc, dt, k3_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny_loc, dt, k3_h, 1, th, 1);
+    cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     Evaluate_fu(tu, tv, th, Nx, Ny, dx, dy, fu, world_size, world_rank);
     Evaluate_fv(tu, tv, th, Nx, Ny, dx, dy, fv, world_size, world_rank);
     Evaluate_fh(tu, tv, th, Nx, Ny, dx, dy, fh, world_size, world_rank);
 
+    // Gather global fu, fv, and fh data
+    MPI_Allgather(fu_loc, Nx * Ny_loc, MPI_DOUBLE, fu, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgather(fu_loc, Nx * Ny_loc, MPI_DOUBLE, fv, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgather(fu_loc, Nx * Ny_loc, MPI_DOUBLE, fh, Nx * Ny, MPI_DOUBLE, MPI_COMM_WORLD);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
     // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
-    cblas_dcopy(Nx * Ny_loc, fu, 1, k4_u, 1);
-    cblas_dcopy(Nx * Ny_loc, fv, 1, k4_v, 1);
-    cblas_dcopy(Nx * Ny_loc, fh, 1, k4_h, 1);
-
+    cblas_dcopy(Nx * Ny, fu, 1, k4_u, 1);
+    cblas_dcopy(Nx * Ny, fv, 1, k4_v, 1);
+    cblas_dcopy(Nx * Ny, fh, 1, k4_h, 1);
 
     // Still all local operations here
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution
-    for (int i = 0; i < Nx; ++i)
+    if (world_rank = root)
     {
-        for (int j = world_rank * Ny_loc; j < 2 * world_rank * Ny_loc; ++j)
+        for (int i = 0; i < Nx; ++i)
         {
-            u[i * Ny_loc + j] += dt / 6.0 *
-                             (k1_u[i * Ny + j] + 2.0 * k2_u[i * Ny + j] +
-                              2.0 * k3_u[i * Ny + j] + k4_u[i * Ny + j]);
-            v[i * Ny_loc + j] += dt / 6.0 *
-                             (k1_v[i * Ny + j] + 2.0 * k2_v[i * Ny + j] +
-                              2.0 * k3_v[i * Ny + j] + k4_v[i * Ny + j]);
-            h[i * Ny_loc + j] += dt / 6.0 *
-                             (k1_h[i * Ny + j] + 2.0 * k2_h[i * Ny + j] +
-                              2.0 * k3_h[i * Ny + j] + k4_h[i * Ny + j]);
-            cout << h[i * Ny_loc + j] << endl;
+            for (int j = 0; j < Ny; ++j)
+            {
+                u[i * Ny + j] += dt / 6.0 *
+                                 (k1_u[i * Ny + j] + 2.0 * k2_u[i * Ny + j] +
+                                  2.0 * k3_u[i * Ny + j] + k4_u[i * Ny + j]);
+                v[i * Ny + j] += dt / 6.0 *
+                                 (k1_v[i * Ny + j] + 2.0 * k2_v[i * Ny + j] +
+                                  2.0 * k3_v[i * Ny + j] + k4_v[i * Ny + j]);
+                h[i * Ny + j] += dt / 6.0 *
+                                 (k1_h[i * Ny + j] + 2.0 * k2_h[i * Ny + j] +
+                                  2.0 * k3_h[i * Ny + j] + k4_h[i * Ny + j]);
+            }
         }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Bcast(u, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+        MPI_Bcast(v, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+        MPI_Bcast(h, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
     }
-
-
-
-    MPI_Barrier(MPI_COMM_WORLD);
 
     // deallocate memory
     delete[] k1_u;
@@ -337,6 +381,14 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny, int Ny_loc
     delete[] k2_h;
     delete[] k3_h;
     delete[] k4_h;
+
+    delete[] fu;
+    delete[] fv;
+    delete[] fh;
+
+    delete[] tu;
+    delete[] tv;
+    delete[] th;
 }
 
 int main(int argc, char *argv[])
@@ -410,68 +462,58 @@ int main(int argc, char *argv[])
 
     int Ny_loc = Ny / world_size;
 
-    // if (world_rank == root)
-    // {
-    //     cout << "Hello" << endl;
-    //     ofstream vOut("output.txt", ios::out | ios ::trunc);
-    //     vOut.precision(5);
-    //     for (int i = 0; i < Nx; ++i)
-    //     {
-    //         for (int j = 0; i < Ny; ++j)
-    //         {
-    //             vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * Ny + j] << setw(15) << v[i * Ny + j] << setw(15) << h[i * Ny + j] << endl;
-    //         }
-    //     }
-    // }
-
     // // debug output
     // cout << "====== h ======" << endl;
     // printMatrix(Nx,Ny,h);
 
     // ======================================================
     // test for evaluating f
-    double *fu = new double[Nx * Ny_loc];
-    double *fv = new double[Nx * Ny_loc];
-    double *fh = new double[Nx * Ny_loc];
-    // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
+    double *fu_loc = new double[Nx * Ny_loc];
+    double *fv_loc = new double[Nx * Ny_loc];
+    double *fh_loc = new double[Nx * Ny_loc];
+
+    // SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', deriux);
+    // Evaluate_fu(u, v, h,Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
+    // Evaluuate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
 
     // ======================================================
     // 4th order RK Time Integrations
 
+    TimeIntegration(u, v, h, Nx, Ny, Ny_loc, dx, dy, dt, fu_loc, fv_loc, fh_loc, world_size, world_rank);
+
     // Time advancement
-    double time = 0.0; // start time
-    while (time <= T)
-    {
-        TimeIntegration(u, v, h, Nx, Ny, Ny_loc, dx, dy, dt, fu, fv, fh, world_size, world_rank);
-        time += dt;
-        cout << "rank " << world_rank << ", time: " << time << endl;
-    }
-
-    // for (int i = 0; i < 10; ++i)
+    // double time = 0.0; // start time
+    // while (time <= 3)
     // {
-    //     TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, T, fu, fv, fh);
+    //     TimeIntegration(u, v, h, Nx, Ny, Ny_loc, dx, dy, dt, fu_loc, fv_loc, fh_loc, world_size, world_rank);
+    //     time += dt;
+    //     cout << "rank " << world_rank << ", time: " << time << endl;
     // }
-
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
 
     // ======================================================
     // Write to file only  in root rank
+    if (world_rank == root)
+    {
+        cout << "Hello" << endl;
+        ofstream vOut("output.txt", ios::out | ios ::trunc);
+        vOut.precision(5);
+        for (int i = 0; i < Nx; ++i)
+        {
+            for (int j = 0; j < Ny; ++j)
+            {
+                vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * Ny + j] << setw(15) << v[i * Ny + j] << setw(15) << h[i * Ny + j] << endl;
+            }
+        }
+    }
 
     // deallocations
     delete[] u;
     delete[] v;
     delete[] h;
     delete[] h0;
-    delete[] fu;
-    delete[] fv;
-    delete[] fh;
+    delete[] fu_loc;
+    delete[] fv_loc;
+    delete[] fh_loc;
 
     MPI_Finalize();
     return 0;
