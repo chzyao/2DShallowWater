@@ -47,8 +47,9 @@ void StoreMPIInfo(Local_MPI_Info *local_mpi_info, MPI_Comm comm_cartesian, const
 
 void LocalBCInfoExchange(double *u_loc, int Nx_loc, int Ny, Local_MPI_Info *local_mpi_info)
 {
-    // ghost cells on each side
-    int N_ghosts = 3;
+    // Find the positions in the global domain for this current rank
+    const int N_ghosts = 3;
+    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
 
     // buffers for sending and receiving data
     // x-dir in cartesian grid
@@ -63,16 +64,17 @@ void LocalBCInfoExchange(double *u_loc, int Nx_loc, int Ny, Local_MPI_Info *loca
     {
         for (int k = 0; k < N_ghosts; ++k)
         {
-            for (int i = N_ghosts; i < 2 * N_ghosts; ++i)
-            {
-                send_west[k * Ny + j] = u_loc[(N_ghosts + k) * Ny + j];
-                send_east[k * Ny + j] = u_loc[(Nx_loc - 2 * N_ghosts + k) * Ny + j];
-            }
+
+            send_west[k * Ny + j] = u_loc[(N_ghosts + k) * Ny + j];
+            // cout << "Send West " << send_west[k * Ny + j] << " " << (N_ghosts + k) << " " << j << endl;
+            send_east[k * Ny + j] = u_loc[(Nx_loc - 2 * N_ghosts + k) * Ny + j];
+            // cout << "Send East " << send_east[k * Ny + j] << " " << (Nx_loc - 2 * N_ghosts + k) << " " << j << endl;
         }
     }
 
     // Exchange boundary info
     MPI_Sendrecv(send_west, Ny * N_ghosts, MPI_DOUBLE, local_mpi_info->west_rank, 0, recv_east, Ny * N_ghosts, MPI_DOUBLE, local_mpi_info->east_rank, 0, local_mpi_info->comm, MPI_STATUS_IGNORE);
+
     MPI_Sendrecv(send_east, Ny * N_ghosts, MPI_DOUBLE, local_mpi_info->east_rank, 1, recv_west, Ny * N_ghosts, MPI_DOUBLE, local_mpi_info->west_rank, 1, local_mpi_info->comm, MPI_STATUS_IGNORE);
 
     // Update boundary info
@@ -81,8 +83,10 @@ void LocalBCInfoExchange(double *u_loc, int Nx_loc, int Ny, Local_MPI_Info *loca
     {
         for (int k = 0; k < N_ghosts; ++k)
         {
-            u_loc[(Nx_loc - 2 * N_ghosts + k) * Ny + j] = recv_east[k * Ny + j];
-            u_loc[(N_ghosts + k) * Ny + j] = recv_west[k * Ny + j];
+            u_loc[(Nx_loc - N_ghosts + k) * Ny + j] = recv_east[k * Ny + j];
+            cout << "recv from east " << recv_east[k * Ny + j] << "  " << (Nx_loc - N_ghosts + k) << " " << j << endl;
+            u_loc[k * Ny + j] = recv_west[k * Ny + j];
+            cout << "recv from west " << recv_west[k * Ny + j] << "  " << k << " " << j << endl;
         }
     }
 
@@ -129,24 +133,26 @@ void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
     cblas_dcopy(Nx * Ny, h0, 1, h, 1);
 }
 
-void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
-                           char dir, double *deriv)
+void SpatialDiscretisation(double *u, int Nx, int Ny, int Nx_loc, double dx, double dy, char dir, double *deriv_loc, Local_MPI_Info *local_mpi_info)
 {
+    // Find the positions in the global domain for this current rank
+    const int N_ghosts = 3;
+    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
     // Discretisation in x-dir ============================================
     if (dir == 'x')
     {
         double px = 1.0 / dx;
 
-        for (int i = 0; i < Nx; ++i)
+        for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
         {
-
+            int i_global = x_global + i;
             for (int j = 0; j < Ny; ++j)
             {
-                deriv[i * Ny + j] =
+                deriv_loc[i * Ny + j] =
                     px *
-                    (-u[((i - 3 + Nx) % Nx) * Ny + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + Nx) % Nx) * Ny + j] -
-                     3.0 / 4.0 * u[((i - 1 + Nx) % Nx) * Ny + j] + 3.0 / 4.0 * u[((i + 1) % Nx) * Ny + j] -
-                     3.0 / 20.0 * u[((i + 2) % Nx) * Ny + j] + u[((i + 3) % Nx) * Ny + j] / 60.0);
+                    (-u[(i_global - 3) * Ny + j] / 60.0 + 3.0 / 20.0 * u[(i_global - 2) * Ny + j] -
+                     3.0 / 4.0 * u[(i_global - 1) * Ny + j] + 3.0 / 4.0 * u[(i_global + 1) * Ny + j] -
+                     3.0 / 20.0 * u[(i_global + 2) * Ny + j] + u[(i_global + 3) * Ny + j] / 60.0);
             }
         }
     }
@@ -156,48 +162,46 @@ void SpatialDiscretisation(double *u, int Nx, int Ny, double dx, double dy,
     {
         double py = 1.0 / dy;
 
-        for (int i = 0; i < Nx; ++i)
+        for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
         {
-
+            int i_global = x_global + i;
             for (int j = 0; j < Ny; ++j)
             {
-                deriv[i * Ny + j] =
+                deriv_loc[i * Ny + j] =
                     py *
-                    (-u[i * Ny + (j - 3 + Ny) % Ny] / 60.0 + 3.0 / 20.0 * u[i * Ny + (j - 2 + Ny) % Ny] -
-                     3.0 / 4.0 * u[i * Ny + (j - 1 + Ny) % Ny] + 3.0 / 4.0 * u[i * Ny + (j + 1) % Ny] -
-                     3.0 / 20.0 * u[i * Ny + (j + 2) % Ny] + u[i * Ny + (j + 3) % Ny] / 60.0);
+                    (-u[i_global * Ny + (j - 3)] / 60.0 + 3.0 / 20.0 * u[i_global * Ny + (j - 2)] -
+                     3.0 / 4.0 * u[i_global * Ny + (j - 1)] + 3.0 / 4.0 * u[i_global * Ny + (j + 1)] -
+                     3.0 / 20.0 * u[i_global * Ny + (j + 2)] + u[i_global * Ny + (j + 3)] / 60.0);
             }
         }
     }
+
+    LocalBCInfoExchange(deriv_loc, Nx_loc, Ny, local_mpi_info);
 }
 
 void Evaluate_fu(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
                  double dx, double dy, double *f_loc, Local_MPI_Info *local_mpi_info)
 {
-    double g = 9.81;
-    double *deriux = new double[Nx * Ny];
-    double *deriuy = new double[Nx * Ny];
-    double *derihx = new double[Nx * Ny];
-
-    SpatialDiscretisation(u, Nx, Ny, dx, dy, 'x', deriux);
-    SpatialDiscretisation(u, Nx, Ny, dx, dy, 'y', deriuy);
-    SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', derihx);
-
-    // Find the positions in the global domain for this current rank
     const int N_ghosts = 3;
-    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
+    double g = 9.81;
+    double *deriux = new double[Nx_loc * Ny];
+    double *deriuy = new double[Nx_loc * Ny];
+    double *derihx = new double[Nx_loc * Ny];
+
+    SpatialDiscretisation(u, Nx, Ny, Nx_loc, dx, dy, 'x', deriux, local_mpi_info);
+    cout << "du/dx" << endl;
+    SpatialDiscretisation(u, Nx, Ny, Nx_loc, dx, dy, 'y', deriuy, local_mpi_info);
+    cout << "du/dy" << endl;
+    SpatialDiscretisation(h, Nx, Ny, Nx_loc, dx, dy, 'x', derihx, local_mpi_info);
+    cout << "dh/dx" << endl;
 
     for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            int i_global = x_global + i;
-            cout << i_global << endl;
-            f_loc[i * Ny + j] = -u[i_global * Ny + j] * deriux[i_global * Ny + j] - v[i_global * Ny + j] * deriuy[i_global * Ny + j] - g * derihx[i_global * Ny + j];
+            f_loc[i * Ny + j] = -u[i * Ny + j] * deriux[i * Ny + j] - v[i * Ny + j] * deriuy[i * Ny + j] - g * derihx[i * Ny + j];
         }
     }
-
-    LocalBCInfoExchange(f_loc, Nx_loc, Ny, local_mpi_info);
 
     delete[] deriux;
     delete[] deriuy;
@@ -208,28 +212,23 @@ void Evaluate_fv(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
                  double dx, double dy, double *f_loc, Local_MPI_Info *local_mpi_info)
 {
     double g = 9.81;
-    double *derivx = new double[Nx * Ny];
-    double *derivy = new double[Nx * Ny];
-    double *derihy = new double[Nx * Ny];
-
-    SpatialDiscretisation(v, Nx, Ny, dx, dy, 'x', derivx);
-    SpatialDiscretisation(v, Nx, Ny, dx, dy, 'y', derivy);
-    SpatialDiscretisation(h, Nx, Ny, dx, dy, 'y', derihy);
-
-    // Find the positions in the global domain for this current rank
     const int N_ghosts = 3;
-    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
+
+    double *derivx = new double[Nx_loc * Ny];
+    double *derivy = new double[Nx_loc * Ny];
+    double *derihy = new double[Nx_loc * Ny];
+
+    SpatialDiscretisation(v, Nx, Ny, Nx_loc, dx, dy, 'x', derivx, local_mpi_info);
+    SpatialDiscretisation(v, Nx, Ny, Nx_loc, dx, dy, 'y', derivy, local_mpi_info);
+    SpatialDiscretisation(h, Nx, Ny, Nx_loc, dx, dy, 'y', derihy, local_mpi_info);
 
     for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            int i_global = x_global + i;
-            f_loc[i * Ny + j] = -u[i_global * Ny + j] * derivx[i_global * Ny + j] - v[i_global * Ny + j] * derivy[i_global * Ny + j] - g * derihy[i_global * Ny + j];
+            f_loc[i * Ny + j] = -u[i * Ny + j] * derivx[i * Ny + j] - v[i * Ny + j] * derivy[i * Ny + j] - g * derihy[i * Ny + j];
         }
     }
-
-    LocalBCInfoExchange(f_loc, Nx_loc, Ny, local_mpi_info);
 
     delete[] derivx;
     delete[] derivy;
@@ -239,13 +238,14 @@ void Evaluate_fv(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
 void Evaluate_fh(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
                  double dx, double dy, double *f_loc, Local_MPI_Info *local_mpi_info)
 {
-    double *derihux = new double[Nx * Ny];
-    double *derihvy = new double[Nx * Ny];
-    double *hu = new double[Nx * Ny];
-    double *hv = new double[Nx * Ny];
+    double *derihux = new double[Nx_loc * Ny];
+    double *derihvy = new double[Nx_loc * Ny];
+    double *hu = new double[Nx_loc * Ny];
+    double *hv = new double[Nx_loc * Ny];
 
+    const int N_ghosts = 3;
     // find hu and hv
-    for (int i = 0; i < Nx; ++i)
+    for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
@@ -254,23 +254,17 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
         }
     }
 
-    SpatialDiscretisation(hu, Nx, Ny, dx, dy, 'x', derihux);
-    SpatialDiscretisation(hv, Nx, Ny, dx, dy, 'y', derihvy);
-
-    // Find the positions in the global domain for this current rank
-    const int N_ghosts = 3;
-    int x_global = local_mpi_info->coords[0] * (Nx_loc - 2 * N_ghosts);
+    SpatialDiscretisation(hu, Nx, Ny, Nx_loc, dx, dy, 'x', derihux, local_mpi_info);
+    SpatialDiscretisation(hv, Nx, Ny, Nx_loc, dx, dy, 'y', derihvy, local_mpi_info);
 
     for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            int i_global = x_global + i;
-            f_loc[i * Ny + j] = -derihux[i_global * Ny + j] - derihvy[i_global * Ny + j];
+            f_loc[i * Ny + j] = -derihux[i * Ny + j] - derihvy[i * Ny + j];
+            cout << f_loc[i * Ny + j] << endl;
         }
     }
-
-    LocalBCInfoExchange(f_loc, Nx_loc, Ny, local_mpi_info);
 
     delete[] derihux;
     delete[] derihvy;
@@ -432,6 +426,7 @@ void TimeIntegration(double *u, double *v, double *h, int Nx, int Nx_loc,
 
 void CollectSolutions(double *u_loc, double *v_loc, double *h_loc, int Nx_loc, double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, Local_MPI_Info *local_mpi_info)
 {
+    cout << "Collecting solutions" << endl;
     const int N_ghosts = 3;
     const int root = 0;
     int *recvcounts = new int[local_mpi_info->world_size];
@@ -587,21 +582,24 @@ int main(int argc, char *argv[])
     double *fv = new double[Nx_loc * Ny];
     double *fh = new double[Nx_loc * Ny];
 
-    Evaluate_fu(u, v, h, Nx, Nx_loc, Ny, dx, dy, fu_loc, &local_mpi_info);
+    // Evaluate_fu(u, v, h, Nx, Nx_loc, Ny, dx, dy, fu_loc, &local_mpi_info);
+
     Evaluate_fv(u, v, h, Nx, Nx_loc, Ny, dx, dy, fv_loc, &local_mpi_info);
+
     Evaluate_fh(u, v, h, Nx, Nx_loc, Ny, dx, dy, fh_loc, &local_mpi_info);
+    cout << "Fucked up" << endl;
 
     // ======================================================
     // 4th order RK Time Integrations
     // Time advancement
-    double time = 0.0; // start time
-    while (time <= 1)
-    {
-        TimeIntegration(u, v, h, Nx, Nx_loc, Ny, dx, dy, dt, fu_loc, fv_loc, fh_loc, u_loc, v_loc, h_loc, &local_mpi_info);
-        time += dt;
-    }
+    // double time = 0.0; // start time
+    // while (time <= 1)
+    // {
+    //     TimeIntegration(u, v, h, Nx, Nx_loc, Ny, dx, dy, dt, fu_loc, fv_loc, fh_loc, u_loc, v_loc, h_loc, &local_mpi_info);
+    //     time += dt;
+    // }
 
-    CollectSolutions(u_loc, v_loc, h_loc, Nx_loc, u_global, v_global, h_global, Nx, Ny, dx, dy, &local_mpi_info);
+    // CollectSolutions(u_loc, v_loc, h_loc, Nx_loc, u_global, v_global, h_global, Nx, Ny, dx, dy, &local_mpi_info);
 
     // deallocations
     delete[] u;
