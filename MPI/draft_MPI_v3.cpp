@@ -84,9 +84,9 @@ void LocalBCInfoExchange(double *u_loc, int Nx_loc, int Ny, Local_MPI_Info *loca
         for (int k = 0; k < N_ghosts; ++k)
         {
             u_loc[(Nx_loc - N_ghosts + k) * Ny + j] = recv_east[k * Ny + j];
-            cout << "recv from east " << recv_east[k * Ny + j] << "  " << (Nx_loc - N_ghosts + k) << " " << j << endl;
+            // cout << "recv from east " << recv_east[k * Ny + j] << "  " << (Nx_loc - N_ghosts + k) << " " << j << endl;
             u_loc[k * Ny + j] = recv_west[k * Ny + j];
-            cout << "recv from west " << recv_west[k * Ny + j] << "  " << k << " " << j << endl;
+            // cout << "recv from west " << recv_west[k * Ny + j] << "  " << k << " " << j << endl;
         }
     }
 
@@ -189,11 +189,8 @@ void Evaluate_fu(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
     double *derihx = new double[Nx_loc * Ny];
 
     SpatialDiscretisation(u, Nx, Ny, Nx_loc, dx, dy, 'x', deriux, local_mpi_info);
-    cout << "du/dx" << endl;
     SpatialDiscretisation(u, Nx, Ny, Nx_loc, dx, dy, 'y', deriuy, local_mpi_info);
-    cout << "du/dy" << endl;
     SpatialDiscretisation(h, Nx, Ny, Nx_loc, dx, dy, 'x', derihx, local_mpi_info);
-    cout << "dh/dx" << endl;
 
     for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
@@ -238,38 +235,30 @@ void Evaluate_fv(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
 void Evaluate_fh(double *u, double *v, double *h, int Nx, int Nx_loc, int Ny,
                  double dx, double dy, double *f_loc, Local_MPI_Info *local_mpi_info)
 {
-    double *derihux = new double[Nx_loc * Ny];
-    double *derihvy = new double[Nx_loc * Ny];
-    double *hu = new double[Nx_loc * Ny];
-    double *hv = new double[Nx_loc * Ny];
+    double *deriux = new double[Nx_loc * Ny];
+    double *derihx = new double[Nx_loc * Ny];
+    double *derivy = new double[Nx_loc * Ny];
+    double *derihy = new double[Nx_loc * Ny];
 
     const int N_ghosts = 3;
-    // find hu and hv
-    for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
-    {
-        for (int j = 0; j < Ny; ++j)
-        {
-            hu[i * Ny + j] = h[i * Ny + j] * u[i * Ny + j];
-            hv[i * Ny + j] = h[i * Ny + j] * v[i * Ny + j];
-        }
-    }
 
-    SpatialDiscretisation(hu, Nx, Ny, Nx_loc, dx, dy, 'x', derihux, local_mpi_info);
-    SpatialDiscretisation(hv, Nx, Ny, Nx_loc, dx, dy, 'y', derihvy, local_mpi_info);
+    SpatialDiscretisation(u, Nx, Ny, Nx_loc, dx, dy, 'x', deriux, local_mpi_info);
+    SpatialDiscretisation(h, Nx, Ny, Nx_loc, dx, dy, 'x', derihx, local_mpi_info);
+    SpatialDiscretisation(v, Nx, Ny, Nx_loc, dx, dy, 'y', derivy, local_mpi_info);
+    SpatialDiscretisation(h, Nx, Ny, Nx_loc, dx, dy, 'y', derihy, local_mpi_info);
 
     for (int i = N_ghosts; i < Nx_loc - N_ghosts; ++i)
     {
         for (int j = 0; j < Ny; ++j)
         {
-            f_loc[i * Ny + j] = -derihux[i * Ny + j] - derihvy[i * Ny + j];
-            cout << f_loc[i * Ny + j] << endl;
+            f_loc[i * Ny + j] = -h[i * Ny + j]*deriux[i * Ny + j]- u[i * Ny + j]*derihx[i * Ny + j]-h[i * Ny + j]*derivy[i * Ny + j]-v[i * Ny + j]*derihy[i * Ny + j];
         }
     }
 
-    delete[] derihux;
-    delete[] derihvy;
-    delete[] hu;
-    delete[] hv;
+    delete[] deriux;
+    delete[] derihx;
+    delete[] derivy;
+    delete[] derihy;
 }
 
 void TimeIntegration(double *u, double *v, double *h, int Nx, int Nx_loc,
@@ -584,22 +573,22 @@ int main(int argc, char *argv[])
 
     // Evaluate_fu(u, v, h, Nx, Nx_loc, Ny, dx, dy, fu_loc, &local_mpi_info);
 
-    Evaluate_fv(u, v, h, Nx, Nx_loc, Ny, dx, dy, fv_loc, &local_mpi_info);
+    // Evaluate_fv(u, v, h, Nx, Nx_loc, Ny, dx, dy, fv_loc, &local_mpi_info);
 
-    Evaluate_fh(u, v, h, Nx, Nx_loc, Ny, dx, dy, fh_loc, &local_mpi_info);
-    cout << "Fucked up" << endl;
+    // Evaluate_fh(u, v, h, Nx, Nx_loc, Ny, dx, dy, fh_loc, &local_mpi_info);
+    // cout << "Fucked up" << endl;
 
     // ======================================================
     // 4th order RK Time Integrations
     // Time advancement
-    // double time = 0.0; // start time
-    // while (time <= 1)
-    // {
-    //     TimeIntegration(u, v, h, Nx, Nx_loc, Ny, dx, dy, dt, fu_loc, fv_loc, fh_loc, u_loc, v_loc, h_loc, &local_mpi_info);
-    //     time += dt;
-    // }
+    double time = 0.0; // start time
+    while (time <= T)
+    {
+        TimeIntegration(u, v, h, Nx, Nx_loc, Ny, dx, dy, dt, fu_loc, fv_loc, fh_loc, u_loc, v_loc, h_loc, &local_mpi_info);
+        time += dt;
+    }
 
-    // CollectSolutions(u_loc, v_loc, h_loc, Nx_loc, u_global, v_global, h_global, Nx, Ny, dx, dy, &local_mpi_info);
+    CollectSolutions(u_loc, v_loc, h_loc, Nx_loc, u_global, v_global, h_global, Nx, Ny, dx, dy, &local_mpi_info);
 
     // deallocations
     delete[] u;
