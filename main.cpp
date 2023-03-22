@@ -14,7 +14,7 @@ namespace po = boost::program_options;
 int main(int argc, char *argv[])
 {
     // Allocate object on the heap
-    ShallowWater *SWE = new ShallowWater;
+    ShallowWater *SWE = new ShallowWater();
     SWE -> SetParameters(argc, argv);
     SWE -> Solve();
 

@@ -10,7 +10,7 @@ using namespace std;
 namespace po = boost::program_options;
 
 ShallowWater::ShallowWater()
-    : m_dt(0.1), m_T(80.0), m_Nx(100), m_Ny(100), m_ic(3)
+    : m_dt(0.1), m_T(80.0), m_Nx(100), m_Ny(100), m_ic(4)
 {
 }
 
@@ -19,22 +19,34 @@ void ShallowWater::SetParameters(int argc, char *argv[])
     // Read parameters from command line =========================
     po::options_description options("Available Options.");
     options.add_options()("help", "Display help message")(
-        "dt", po::value<double>()->default_value(0.1), "Time-step to use")(
-        "T", po::value<double>()->default_value(80.0), "Total integration time")(
-        "Nx", po::value<int>()->default_value(100), "Number of grid points in x")(
-        "Ny", po::value<int>()->default_value(100), "Number of grid points in y")(
-        "ic", po::value<int>()->default_value(3),
+        "dt", po::value<double>()->required(), "Time-step to use")(
+        "T", po::value<double>()->required(), "Total integration time")(
+        "Nx", po::value<int>()->required(), "Number of grid points in x")(
+        "Ny", po::value<int>()->required(), "Number of grid points in y")(
+        "ic", po::value<int>()->required(),
         "Index of the initial condition to use (1-4)");
 
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, options), vm);
-    po::notify(vm);
 
-    // Display help message
-    if (vm.count("help"))
+    try
     {
-        cout << options << endl;
-        exit(EXIT_SUCCESS);
+        po::store(po::parse_command_line(argc, argv, options), vm);
+
+        // Display help message
+        if (vm.count("help"))
+        {
+            cout << options << endl;
+            exit(EXIT_SUCCESS);
+        }
+
+        po::notify(vm);
+    }
+
+    catch (const po::error &e)
+    {
+        cerr << "Error: " << e.what() << endl;
+        cerr << options << endl;
+        exit(EXIT_FAILURE);
     }
 
     // Assign parameters
@@ -139,8 +151,8 @@ void ShallowWater::Evaluate_fu(double *u, double *v, double *h, double *f)
     {
         for (int j = 0; j < m_Ny; ++j)
         {
-            f[i * m_Ny + j] = -m_u[i * m_Ny + j] * deriux[i * m_Ny + j] -
-                              m_v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
+            f[i * m_Ny + j] = -u[i * m_Ny + j] * deriux[i * m_Ny + j] -
+                              v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
                               g * derihx[i * m_Ny + j];
         }
     }
@@ -468,7 +480,6 @@ void ShallowWater::Solve()
     delete[] fv;
     delete[] fh;
 }
-
 
 ShallowWater::~ShallowWater()
 {

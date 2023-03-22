@@ -46,10 +46,9 @@ void SetInitialConditions(double *u, double *v, double *h, double *h0, int Nx,
 }
 
 // Global Spatial Discretisations
-void SpatialDiscretisation(double *u, double *u_loc, int Nx, int Ny, double dx, double dy, char dir, double *deriv, double *deriv_loc, int world_size, int world_rank)
+void SpatialDiscretisation(double *u, double *u_loc, int Nx, int Ny, int Ny_loc,  double dx, double dy, char dir, double *deriv, double *deriv_loc, int world_size, int world_rank)
 {
     const int root = 0;
-    int Ny_loc = Ny / world_size;
     // Implement in the root rank, Scatter u, and its derivative
     if (world_rank == root)
     {
@@ -97,12 +96,11 @@ void SpatialDiscretisation(double *u, double *u_loc, int Nx, int Ny, double dx, 
     MPI_Scatter(deriv, Nx * Ny_loc, MPI_DOUBLE, deriv_loc, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
 }
 
-void Evaluate_fu(double *u, double *u_loc, double *v, double *v_loc, double *h, double *h_loc, int Nx, int Ny, double dx, double dy, double *f_loc, int world_size, int world_rank)
+void Evaluate_fu(double *u, double *u_loc, double *v, double *v_loc, double *h, double *h_loc, int Nx, int Ny, int Ny_loc, double dx, double dy, double *f_loc, int world_size, int world_rank)
 {
     double g = 9.81;
 
     const int root = 0;
-    int Ny_loc = Ny / world_size;
 
     double *deriux = nullptr;
     double *deriuy = nullptr;
@@ -119,9 +117,9 @@ void Evaluate_fu(double *u, double *u_loc, double *v, double *v_loc, double *h, 
     double *deriuy_loc = new double[Nx * Ny_loc];
     double *derihx_loc = new double[Nx * Ny_loc];
 
-    SpatialDiscretisation(u, u_loc, Nx, Ny, dx, dy, 'x', deriux, deriux_loc, world_size, world_rank);
-    SpatialDiscretisation(u, u_loc, Nx, Ny, dx, dy, 'y', deriuy, deriuy_loc, world_size, world_rank);
-    SpatialDiscretisation(h, h_loc, Nx, Ny, dx, dy, 'x', derihx, derihx_loc, world_size, world_rank);
+    SpatialDiscretisation(u, u_loc, Nx, Ny, Ny_loc, dx, dy, 'x', deriux, deriux_loc, world_size, world_rank);
+    SpatialDiscretisation(u, u_loc, Nx, Ny, Ny_loc,  dx, dy, 'y', deriuy, deriuy_loc, world_size, world_rank);
+    SpatialDiscretisation(h, h_loc, Nx, Ny, Ny_loc, dx, dy, 'x', derihx, derihx_loc, world_size, world_rank);
 
     // For MPI: size of f: Nx * (Ny_loc)
     for (int i = 0; i < Nx; ++i)
@@ -141,10 +139,9 @@ void Evaluate_fu(double *u, double *u_loc, double *v, double *v_loc, double *h, 
     delete[] derihx_loc;
 }
 
-void Evaluate_fv(double *u, double *u_loc, double *v, double *v_loc, double *h, double *h_loc, int Nx, int Ny, double dx, double dy, double *f_loc, int world_size, int world_rank)
+void Evaluate_fv(double *u, double *u_loc, double *v, double *v_loc, double *h, double *h_loc, int Nx, int Ny, int Ny_loc, double dx, double dy, double *f_loc, int world_size, int world_rank)
 {
     const int root = world_rank;
-    int Ny_loc = Ny / world_size;
     double g = 9.81;
 
     double *derivx = nullptr;
@@ -162,9 +159,9 @@ void Evaluate_fv(double *u, double *u_loc, double *v, double *v_loc, double *h, 
     double *derivy_loc = new double[Nx * Ny_loc];
     double *derihy_loc = new double[Nx * Ny_loc];
 
-    SpatialDiscretisation(v, v_loc, Nx, Ny, dx, dy, 'x', derivx, derivx_loc, world_size, world_rank);
-    SpatialDiscretisation(v, v_loc, Nx, Ny, dx, dy, 'y', derivy, derivy_loc, world_size, world_rank);
-    SpatialDiscretisation(h, h_loc, Nx, Ny, dx, dy, 'y', derihy, derihy_loc, world_size, world_rank);
+    SpatialDiscretisation(v, v_loc, Nx, Ny,Ny_loc, dx, dy, 'x', derivx, derivx_loc, world_size, world_rank);
+    SpatialDiscretisation(v, v_loc, Nx, Ny, Ny_loc,dx, dy, 'y', derivy, derivy_loc, world_size, world_rank);
+    SpatialDiscretisation(h, h_loc, Nx, Ny,Ny_loc, dx, dy, 'y', derihy, derihy_loc, world_size, world_rank);
 
     // For MPI: size of f: Nx * (Ny_loc)
     for (int i = 0; i < Nx; ++i)
@@ -184,10 +181,9 @@ void Evaluate_fv(double *u, double *u_loc, double *v, double *v_loc, double *h, 
     delete[] derihy_loc;
 }
 
-void Evaluate_fh(double *u, double *u_loc, double *v, double *v_loc, double *h, double *h_loc, int Nx, int Ny, double dx, double dy, double *f_loc, int world_size, int world_rank)
+void Evaluate_fh(double *u, double *u_loc, double *v, double *v_loc, double *h, double *h_loc, int Nx, int Ny, int Ny_loc, double dx, double dy, double *f_loc, int world_size, int world_rank)
 {
     const int root = world_rank;
-    int Ny_loc = Ny / world_size;
 
     double *deriux = nullptr;
     double *derihx = nullptr;
@@ -207,10 +203,10 @@ void Evaluate_fh(double *u, double *u_loc, double *v, double *v_loc, double *h, 
         derihy = new double[Nx * Ny];
     }
 
-    SpatialDiscretisation(u, u_loc, Nx, Ny, dx, dy, 'x', deriux, deriux_loc, world_size, world_rank);
-    SpatialDiscretisation(h, h_loc, Nx, Ny, dx, dy, 'y', derihx, derihx_loc, world_size, world_rank);
-    SpatialDiscretisation(v, v_loc, Nx, Ny, dx, dy, 'y', derivy, derivy_loc, world_size, world_rank);
-    SpatialDiscretisation(h, h_loc, Nx, Ny, dx, dy, 'y', derihy, derihy_loc, world_size, world_rank);
+    SpatialDiscretisation(u, u_loc, Nx, Ny, Ny_loc, dx, dy, 'x', deriux, deriux_loc, world_size, world_rank);
+    SpatialDiscretisation(h, h_loc, Nx, Ny, Ny_loc, dx, dy, 'y', derihx, derihx_loc, world_size, world_rank);
+    SpatialDiscretisation(v, v_loc, Nx, Ny, Ny_loc, dx, dy, 'y', derivy, derivy_loc, world_size, world_rank);
+    SpatialDiscretisation(h, h_loc, Nx, Ny, Ny_loc,  dx, dy, 'y', derihy, derihy_loc, world_size, world_rank);
 
     // For MPI: size of f: Nx * (Ny_loc)
     for (int i = 0; i < Nx; ++i)
@@ -311,9 +307,9 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     MPI_Bcast(tv, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
-    Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
-    Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
-    Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fh_loc, world_size, world_rank);
+    Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny,Ny_loc, dx, dy, fu_loc, world_size, world_rank);
+    Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, Ny_loc,dx, dy, fv_loc, world_size, world_rank);
+    Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, Ny_loc,dx, dy, fh_loc, world_size, world_rank);
 
     // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
@@ -350,9 +346,9 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
     // Evaluate new f
-    Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
-    Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
-    Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fh_loc, world_size, world_rank);
+    Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny,Ny_loc, dx, dy, fu_loc, world_size, world_rank);
+    Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny,Ny_loc, dx, dy, fv_loc, world_size, world_rank);
+    Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny,Ny_loc, dx, dy, fh_loc, world_size, world_rank);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
@@ -388,9 +384,9 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     MPI_Bcast(tv, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
-    Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
-    Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
-    Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fh_loc, world_size, world_rank);
+    Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, Ny_loc,dx, dy, fu_loc, world_size, world_rank);
+    Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, Ny_loc,dx, dy, fv_loc, world_size, world_rank);
+    Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, Ny_loc,dx, dy, fh_loc, world_size, world_rank);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
@@ -426,9 +422,9 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     MPI_Bcast(tv, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
-    Evaluate_fu(tu, tu_loc, tv, v_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
-    Evaluate_fv(tu, tu_loc, tv, v_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
-    Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fh_loc, world_size, world_rank);
+    Evaluate_fu(tu, tu_loc, tv, v_loc, th, th_loc, Nx, Ny,Ny_loc, dx, dy, fu_loc, world_size, world_rank);
+    Evaluate_fv(tu, tu_loc, tv, v_loc, th, th_loc, Nx, Ny, Ny_loc,dx, dy, fv_loc, world_size, world_rank);
+    Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny,Ny_loc, dx, dy, fh_loc, world_size, world_rank);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
@@ -579,7 +575,19 @@ int main(int argc, char *argv[])
     // Initial conditions set to all processes
     SetInitialConditions(u, v, h, h0, Nx, Ny, ic, dx, dy);
 
-    int Ny_loc = Ny / world_size;
+    // Domain decompositions
+    int Ny_loc;
+    int remainder = Ny % world_size;
+    int chunk = (Ny-remainder)/world_size;
+
+    if (world_rank < remainder)
+    {
+        Ny_loc = chunk + 1;
+    }
+    else
+    {
+        Ny_loc = chunk;
+    }
 
     // // debug output
     // cout << "====== h ======" << endl;
