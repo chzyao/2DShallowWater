@@ -25,14 +25,6 @@ protected:
 
     void Evaluate_f(double *u, double *v, double *h, double *fu, double *fv, double *fh);
 
-
-    // void Evaluate_fu_BLAS(double *u, double *v, double *h, int Nx, int Ny,
-    //                       double dx, double dy, double *f);
-    // void Evaluate_fv_BLAS(double *u, double *v, double *h, int Nx, int Ny,
-    //                       double dx, double dy, double *f);
-    // void Evaluate_fh_BLAS(double *u, double *v, double *h, int Nx, int Ny,
-    //                       double dx, double dy, double *f);
-
     void TimeIntegration(double *u, double *v, double *h, double *fu, double *fv, double *fh);
 
 private:
@@ -43,6 +35,7 @@ private:
     int m_ic;
     double m_dx;
     double m_dy;
+    char m_method;
 
     // Solutions
     double *m_u;

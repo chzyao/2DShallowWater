@@ -24,7 +24,8 @@ void ShallowWater::SetParameters(int argc, char *argv[])
         "Nx", po::value<int>()->required(), "Number of grid points in x")(
         "Ny", po::value<int>()->required(), "Number of grid points in y")(
         "ic", po::value<int>()->required(),
-        "Index of the initial condition to use (1-4)");
+        "Index of the initial condition to use (1-4)")(
+        "method", po::value<char>()->required(), "Time Integration Method ('l': Loop, 'b': BLAS)");
 
     po::variables_map vm;
 
@@ -55,6 +56,7 @@ void ShallowWater::SetParameters(int argc, char *argv[])
     m_Nx = vm["Nx"].as<int>();
     m_Ny = vm["Ny"].as<int>();
     m_ic = vm["ic"].as<int>();
+    m_method = vm["method"].as<char>();
 
     // Mesh Sizes
     m_dx = 1.0;
@@ -98,40 +100,58 @@ void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
 
 void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
 {
-    // Discretisation in x-dir ============================================
-    if (dir == 'x')
+    // LOOP Based Approach=====================================================
+    if (m_method == 'l')
     {
-        double px = 1.0 / m_dx;
-
-        for (int i = 0; i < m_Nx; ++i)
+        // Discretisation in x-dir ============================================
+        if (dir == 'x')
         {
-            for (int j = 0; j < m_Ny; ++j)
+            double px = 1.0 / m_dx;
+
+            for (int i = 0; i < m_Nx; ++i)
             {
-                deriv[i * m_Ny + j] =
-                    px *
-                    (-u[((i - 3 + m_Nx) % m_Nx) * m_Ny + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + m_Nx) % m_Nx) * m_Ny + j] -
-                     3.0 / 4.0 * u[((i - 1 + m_Nx) % m_Nx) * m_Ny + j] + 3.0 / 4.0 * u[((i + 1) % m_Nx) * m_Ny + j] -
-                     3.0 / 20.0 * u[((i + 2) % m_Nx) * m_Ny + j] + u[((i + 3) % m_Nx) * m_Ny + j] / 60.0);
+                for (int j = 0; j < m_Ny; ++j)
+                {
+                    deriv[i * m_Ny + j] =
+                        px *
+                        (-u[((i - 3 + m_Nx) % m_Nx) * m_Ny + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + m_Nx) % m_Nx) * m_Ny + j] -
+                         3.0 / 4.0 * u[((i - 1 + m_Nx) % m_Nx) * m_Ny + j] + 3.0 / 4.0 * u[((i + 1) % m_Nx) * m_Ny + j] -
+                         3.0 / 20.0 * u[((i + 2) % m_Nx) * m_Ny + j] + u[((i + 3) % m_Nx) * m_Ny + j] / 60.0);
+                }
+            }
+        }
+
+        // Discretisation in y-dir ============================================
+        else if (dir == 'y')
+        {
+            double py = 1.0 / m_dy;
+
+            for (int i = 0; i < m_Nx; ++i)
+            {
+
+                for (int j = 0; j < m_Ny; ++j)
+                {
+                    deriv[i * m_Ny + j] =
+                        py *
+                        (-u[i * m_Ny + (j - 3 + m_Ny) % m_Ny] / 60.0 + 3.0 / 20.0 * u[i * m_Ny + (j - 2 + m_Ny) % m_Ny] -
+                         3.0 / 4.0 * u[i * m_Ny + (j - 1 + m_Ny) % m_Ny] + 3.0 / 4.0 * u[i * m_Ny + (j + 1) % m_Ny] -
+                         3.0 / 20.0 * u[i * m_Ny + (j + 2) % m_Ny] + u[i * m_Ny + (j + 3) % m_Ny] / 60.0);
+                }
             }
         }
     }
 
-    // Discretisation in y-dir ============================================
-    else if (dir == 'y')
+    // BLAS based Approach ====================================================
+    else if (m_method == 'b')
     {
-        double py = 1.0 / m_dy;
-
-        for (int i = 0; i < m_Nx; ++i)
+        // Discretisation in x-dir ============================================
+        if (dir == 'x')
         {
+        }
 
-            for (int j = 0; j < m_Ny; ++j)
-            {
-                deriv[i * m_Ny + j] =
-                    py *
-                    (-u[i * m_Ny + (j - 3 + m_Ny) % m_Ny] / 60.0 + 3.0 / 20.0 * u[i * m_Ny + (j - 2 + m_Ny) % m_Ny] -
-                     3.0 / 4.0 * u[i * m_Ny + (j - 1 + m_Ny) % m_Ny] + 3.0 / 4.0 * u[i * m_Ny + (j + 1) % m_Ny] -
-                     3.0 / 20.0 * u[i * m_Ny + (j + 2) % m_Ny] + u[i * m_Ny + (j + 3) % m_Ny] / 60.0);
-            }
+        // Discretisation in y-dir ============================================
+        else if (dir == 'y')
+        {
         }
     }
 }
@@ -148,29 +168,38 @@ void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *fu, doubl
     double *derihx = new double[m_Nx * m_Ny];
     double *derihy = new double[m_Nx * m_Ny];
 
-    SpatialDiscretisation(u, 'x', deriux);
-    SpatialDiscretisation(u, 'y', deriuy);
-
-    SpatialDiscretisation(v, 'x', derivx);
-    SpatialDiscretisation(v, 'y', derivy);
-
-    SpatialDiscretisation(h, 'x', derihx);
-    SpatialDiscretisation(h, 'y', derihy);
-
-    for (int i = 0; i < m_Nx; ++i)
+    // Loop Based Approach ==================================================
+    if (m_method == 'l')
     {
-        for (int j = 0; j < m_Ny; ++j)
+        SpatialDiscretisation(u, 'x', deriux);
+        SpatialDiscretisation(u, 'y', deriuy);
+
+        SpatialDiscretisation(v, 'x', derivx);
+        SpatialDiscretisation(v, 'y', derivy);
+
+        SpatialDiscretisation(h, 'x', derihx);
+        SpatialDiscretisation(h, 'y', derihy);
+
+        for (int i = 0; i < m_Nx; ++i)
         {
-            fu[i * m_Ny + j] = -u[i * m_Ny + j] * deriux[i * m_Ny + j] -
-                               v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
-                               g * derihx[i * m_Ny + j];
+            for (int j = 0; j < m_Ny; ++j)
+            {
+                fu[i * m_Ny + j] = -u[i * m_Ny + j] * deriux[i * m_Ny + j] -
+                                   v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
+                                   g * derihx[i * m_Ny + j];
 
-            fv[i * m_Ny + j] = -u[i * m_Ny + j] * derivx[i * m_Ny + j] -
-                               v[i * m_Ny + j] * derivy[i * m_Ny + j] -
-                               g * derihy[i * m_Ny + j];
+                fv[i * m_Ny + j] = -u[i * m_Ny + j] * derivx[i * m_Ny + j] -
+                                   v[i * m_Ny + j] * derivy[i * m_Ny + j] -
+                                   g * derihy[i * m_Ny + j];
 
-            fh[i * m_Ny + j] = -h[i * m_Ny + j] * deriux[i * m_Ny + j] - u[i * m_Ny + j] * derihx[i * m_Ny + j] - h[i * m_Ny + j] * derivy[i * m_Ny + j] - v[i * m_Ny + j] * derihy[i * m_Ny + j];
+                fh[i * m_Ny + j] = -h[i * m_Ny + j] * deriux[i * m_Ny + j] - u[i * m_Ny + j] * derihx[i * m_Ny + j] - h[i * m_Ny + j] * derivy[i * m_Ny + j] - v[i * m_Ny + j] * derihy[i * m_Ny + j];
+            }
         }
+    }
+
+    else if (m_method == 'b')
+    {
+
     }
 
     delete[] deriux;
@@ -182,6 +211,8 @@ void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *fu, doubl
     delete[] derihx;
     delete[] derihy;
 }
+
+
 
 void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, double *fv, double *fh)
 {
