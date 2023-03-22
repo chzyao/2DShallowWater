@@ -421,7 +421,7 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
         cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
         cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
     }
-    
+
     MPI_Bcast(tu, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Bcast(tv, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
@@ -616,9 +616,9 @@ int main(int argc, char *argv[])
         cout << "Hello" << endl;
         ofstream vOut("output.txt", ios::out | ios ::trunc);
         vOut.precision(5);
-        for (int i = 0; i < Nx; ++i)
+        for (int j = 0; j < Ny; ++j)
         {
-            for (int j = 0; j < Ny; ++j)
+            for (int i = 0; i < Nx; ++i)
             {
                 vOut << setw(15) << i * dx << setw(15) << j * dy << setw(15) << u[i * Ny + j] << setw(15) << v[i * Ny + j] << setw(15) << h[i * Ny + j] << endl;
             }
