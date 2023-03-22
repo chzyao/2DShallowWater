@@ -201,10 +201,10 @@ void Evaluate_fh(double *u, double *u_loc, double *v, double *v_loc, double *h, 
 
     if (world_rank == root)
     {
-        double *deriux = new double[Nx * Ny];
-        double *derihx = new double[Nx * Ny];
-        double *derivy = new double[Nx * Ny];
-        double *derihy = new double[Nx * Ny];
+        deriux = new double[Nx * Ny];
+        derihx = new double[Nx * Ny];
+        derivy = new double[Nx * Ny];
+        derihy = new double[Nx * Ny];
     }
 
     SpatialDiscretisation(u, u_loc, Nx, Ny, dx, dy, 'x', deriux, deriux_loc, world_size, world_rank);
@@ -274,43 +274,36 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     double *k3_h = nullptr;
     double *k4_h = nullptr;
 
-    double *tu = nullptr; // temp vector t = u
-    double *tv = nullptr; // temp vector t = v
-    double *th = nullptr; // temp vector t = h
+    double *tu = new double[Nx * Ny]; // temp vector t = u
+    double *tv = new double[Nx * Ny]; // temp vector t = v
+    double *th = new double[Nx * Ny]; // temp vector t = h
 
     if (world_rank == root)
     {
-        double *k1_u = new double[Nx * Ny];
-        double *k2_u = new double[Nx * Ny];
-        double *k3_u = new double[Nx * Ny];
-        double *k4_u = new double[Nx * Ny];
+        k1_u = new double[Nx * Ny];
+        k2_u = new double[Nx * Ny];
+        k3_u = new double[Nx * Ny];
+        k4_u = new double[Nx * Ny];
 
-        double *k1_v = new double[Nx * Ny];
-        double *k2_v = new double[Nx * Ny];
-        double *k3_v = new double[Nx * Ny];
-        double *k4_v = new double[Nx * Ny];
+        k1_v = new double[Nx * Ny];
+        k2_v = new double[Nx * Ny];
+        k3_v = new double[Nx * Ny];
+        k4_v = new double[Nx * Ny];
 
-        double *k1_h = new double[Nx * Ny];
-        double *k2_h = new double[Nx * Ny];
-        double *k3_h = new double[Nx * Ny];
-        double *k4_h = new double[Nx * Ny];
-
-        double *tu = new double[Nx * Ny]; // temp vector t = u
-        double *tv = new double[Nx * Ny]; // temp vector t = v
-        double *th = new double[Nx * Ny]; // temp vector t = h
+        k1_h = new double[Nx * Ny];
+        k2_h = new double[Nx * Ny];
+        k3_h = new double[Nx * Ny];
+        k4_h = new double[Nx * Ny];
     }
     // since f terms are calulated locally, we gather them
 
     // Calculating k1 = f(yn) ===================================
 
     // Copy in root rank
-    if (world_rank == root)
-    {
-        cblas_dcopy(Nx * Ny, u, 1, tu, 1);
-        cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-        cblas_dcopy(Nx * Ny, h, 1, th, 1);
-    }
-    
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1);
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+
     Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
     Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
     Evaluate_fh(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fh_loc, world_size, world_rank);
@@ -331,16 +324,13 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     // Calculating k2 = f(yn + dt*k1/2) ==========================
     // reset temp values
 
-    if (world_rank == root)
-    {
-        cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-        cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-        cblas_dcopy(Nx * Ny, h, 1, th, 1);
-        // update un to un+dt*k1/2 to evaluate f for k2
-        cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
-        cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
-        cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
-    }
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    // update un to un+dt*k1/2 to evaluate f for k2
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
 
     // Evaluate new f
     Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
@@ -363,17 +353,15 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     // Calculating k3 = f(yn+dt*k2/2) =============================
 
     // reset temp values in root rank
-    if (world_rank == root)
-    {
-        cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-        cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-        cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
-        // update un to un+dt*k2/2 to evaluate f for k3
-        cblas_daxpy(Nx * Ny, dt / 2.0, k2_u, 1, tu, 1);
-        cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
-        cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
-    }
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+
+    // update un to un+dt*k2/2 to evaluate f for k3
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
 
     Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
     Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
@@ -395,17 +383,14 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     // k4 = f(yn+dt*k3) ===========================================
     // reset temp values in root rank
 
-    if (world_rank == root)
-    {
-        cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-        cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-        cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+    cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
-        // update un to un+dt*k2/2 to evaluate f for k3
-        cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
-        cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
-        cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
-    }
+    // update un to un+dt*k2/2 to evaluate f for k3
+    cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
+    cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
+    cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
 
     Evaluate_fu(tu, tu_loc, tv, v_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
     Evaluate_fv(tu, tu_loc, tv, v_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
@@ -445,6 +430,11 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
         }
     }
 
+    // Broacast updated results to all processes
+    MPI_Bcast(u, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(v, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(h, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+
     // deallocate memory
     delete[] k1_u;
     delete[] k2_u;
@@ -475,10 +465,6 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     delete[] k2_h_loc;
     delete[] k3_h_loc;
     delete[] k4_h_loc;
-
-    delete[] fu_loc;
-    delete[] fv_loc;
-    delete[] fh_loc;
 
     delete[] tu;
     delete[] tv;
@@ -584,6 +570,8 @@ int main(int argc, char *argv[])
         time += dt;
         cout << "rank " << world_rank << ", time: " << time << endl;
     }
+
+    // TimeIntegration(u, v, h, u_loc, v_loc, h_loc, Nx, Ny, Ny_loc, dx, dy, dt, fu_loc, fv_loc, fh_loc, world_size, world_rank);
 
     // ======================================================
     // Write to file only  in root rank
