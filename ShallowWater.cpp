@@ -136,92 +136,52 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
     }
 }
 
-void ShallowWater::Evaluate_fu(double *u, double *v, double *h, double *f)
+void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *fu, double *fv, double *fh)
 {
     double g = 9.81;
     double *deriux = new double[m_Nx * m_Ny];
     double *deriuy = new double[m_Nx * m_Ny];
+
+    double *derivx = new double[m_Nx * m_Ny];
+    double *derivy = new double[m_Nx * m_Ny];
+
     double *derihx = new double[m_Nx * m_Ny];
+    double *derihy = new double[m_Nx * m_Ny];
 
     SpatialDiscretisation(u, 'x', deriux);
     SpatialDiscretisation(u, 'y', deriuy);
-    SpatialDiscretisation(h, 'x', derihx);
-
-    for (int i = 0; i < m_Nx; ++i)
-    {
-        for (int j = 0; j < m_Ny; ++j)
-        {
-            f[i * m_Ny + j] = -u[i * m_Ny + j] * deriux[i * m_Ny + j] -
-                              v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
-                              g * derihx[i * m_Ny + j];
-        }
-    }
-
-    delete[] deriux;
-    delete[] deriuy;
-    delete[] derihx;
-}
-
-void ShallowWater::Evaluate_fv(double *u, double *v, double *h, double *f)
-{
-    double g = 9.81;
-    double *derivx = new double[m_Nx * m_Ny];
-    double *derivy = new double[m_Nx * m_Ny];
-    double *derihy = new double[m_Nx * m_Ny];
 
     SpatialDiscretisation(v, 'x', derivx);
     SpatialDiscretisation(v, 'y', derivy);
+
+    SpatialDiscretisation(h, 'x', derihx);
     SpatialDiscretisation(h, 'y', derihy);
 
     for (int i = 0; i < m_Nx; ++i)
     {
         for (int j = 0; j < m_Ny; ++j)
         {
-            f[i * m_Ny + j] = -u[i * m_Ny + j] * derivx[i * m_Ny + j] -
-                              v[i * m_Ny + j] * derivy[i * m_Ny + j] -
-                              g * derihy[i * m_Ny + j];
+            fu[i * m_Ny + j] = -u[i * m_Ny + j] * deriux[i * m_Ny + j] -
+                               v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
+                               g * derihx[i * m_Ny + j];
+
+            fv[i * m_Ny + j] = -u[i * m_Ny + j] * derivx[i * m_Ny + j] -
+                               v[i * m_Ny + j] * derivy[i * m_Ny + j] -
+                               g * derihy[i * m_Ny + j];
+
+            fh[i * m_Ny + j] = -h[i * m_Ny + j] * deriux[i * m_Ny + j] - u[i * m_Ny + j] * derihx[i * m_Ny + j] - h[i * m_Ny + j] * derivy[i * m_Ny + j] - v[i * m_Ny + j] * derihy[i * m_Ny + j];
         }
     }
+
+    delete[] deriux;
+    delete[] deriuy;
 
     delete[] derivx;
     delete[] derivy;
+
+    delete[] derihx;
     delete[] derihy;
 }
-
-void ShallowWater::Evaluate_fh(double *u, double *v, double *h, double *f)
-{
-    double *derihux = new double[m_Nx * m_Ny];
-    double *derihvy = new double[m_Nx * m_Ny];
-    double *hu = new double[m_Nx * m_Ny];
-    double *hv = new double[m_Nx * m_Ny];
-
-    // find hu and hv
-    for (int i = 0; i < m_Nx; ++i)
-    {
-        for (int j = 0; j < m_Ny; ++j)
-        {
-            hu[i * m_Ny + j] = h[i * m_Ny + j] * u[i * m_Ny + j];
-            hv[i * m_Ny + j] = h[i * m_Ny + j] * v[i * m_Ny + j];
-        }
-    }
-
-    SpatialDiscretisation(hu, 'x', derihux);
-    SpatialDiscretisation(hv, 'y', derihvy);
-
-    for (int i = 0; i < m_Nx; ++i)
-    {
-        for (int j = 0; j < m_Ny; ++j)
-        {
-            f[i * m_Ny + j] = -derihux[i * m_Ny + j] - derihvy[i * m_Ny + j];
-        }
-    }
-
-    delete[] derihux;
-    delete[] derihvy;
-    delete[] hu;
-    delete[] hv;
-}
-
 
 void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, double *fv, double *fh)
 {
@@ -252,9 +212,7 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
     cblas_dcopy(m_Nx * m_Ny, v, 1, tv, 1);
     cblas_dcopy(m_Nx * m_Ny, h, 1, th, 1);
 
-    Evaluate_fu(u, v, h, fu);
-    Evaluate_fv(u, v, h, fv);
-    Evaluate_fh(u, v, h, fh);
+    Evaluate_f(tu, tv, th, fu, fv, fh);
 
     // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
@@ -276,9 +234,7 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
     cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k1_h, 1, th, 1);
 
     // Evaluate new f
-    Evaluate_fu(tu, tv, th, fu);
-    Evaluate_fv(tu, tv, th, fv);
-    Evaluate_fh(tu, tv, th, fh);
+    Evaluate_f(tu, tv, th, fu, fv, fh);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
@@ -299,9 +255,7 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
     cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k2_v, 1, tv, 1);
     cblas_daxpy(m_Nx * m_Ny, m_dt / 2.0, k2_h, 1, th, 1);
 
-    Evaluate_fu(tu, tv, th, fu);
-    Evaluate_fv(tu, tv, th, fv);
-    Evaluate_fh(tu, tv, th, fh);
+    Evaluate_f(tu, tv, th, fu, fv, fh);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
@@ -322,9 +276,7 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
     cblas_daxpy(m_Nx * m_Ny, m_dt, k3_v, 1, tv, 1);
     cblas_daxpy(m_Nx * m_Ny, m_dt, k3_h, 1, th, 1);
 
-    Evaluate_fu(tu, tv, th, fu);
-    Evaluate_fv(tu, tv, th, fv);
-    Evaluate_fh(tu, tv, th, fh);
+    Evaluate_f(tu, tv, th, fu, fv, fh);
 
     // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
     // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);

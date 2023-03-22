@@ -23,9 +23,8 @@ protected:
 
     void SpatialDiscretisation(double *u, char dir, double *deriv);
 
-    void Evaluate_fu(double *u, double *v, double *h, double *f);
-    void Evaluate_fv(double *u, double *v, double *h, double *f);
-    void Evaluate_fh(double *u, double *v, double *h, double *f);
+    void Evaluate_f(double *u, double *v, double *h, double *fu, double *fv, double *fh);
+
 
     // void Evaluate_fu_BLAS(double *u, double *v, double *h, int Nx, int Ny,
     //                       double dx, double dy, double *f);
