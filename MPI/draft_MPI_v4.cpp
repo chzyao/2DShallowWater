@@ -300,9 +300,16 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     // Calculating k1 = f(yn) ===================================
 
     // Copy in root rank
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1);
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    if (world_rank == root)
+    {
+        cblas_dcopy(Nx * Ny, u, 1, tu, 1);
+        cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+        cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    }
+
+    MPI_Bcast(tu, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(tv, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
     Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
     Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
@@ -321,16 +328,26 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     MPI_Gather(k1_v_loc, Nx * Ny_loc, MPI_DOUBLE, k1_v, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Gather(k1_h_loc, Nx * Ny_loc, MPI_DOUBLE, k1_h, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
+    cout << "k1 Calculations finished" << endl;
+
     // Calculating k2 = f(yn + dt*k1/2) ==========================
     // reset temp values
 
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
-    // update un to un+dt*k1/2 to evaluate f for k2
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
+    // reset and broadcast
+    if (world_rank == root)
+    {
+        cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+        cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+        cblas_dcopy(Nx * Ny, h, 1, th, 1);
+        // update un to un+dt*k1/2 to evaluate f for k2
+        cblas_daxpy(Nx * Ny, dt / 2.0, k1_u, 1, tu, 1);
+        cblas_daxpy(Nx * Ny, dt / 2.0, k1_v, 1, tv, 1);
+        cblas_daxpy(Nx * Ny, dt / 2.0, k1_h, 1, th, 1);
+    }
+
+    MPI_Bcast(tu, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(tv, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
     // Evaluate new f
     Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
@@ -350,18 +367,26 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     MPI_Gather(k2_v_loc, Nx * Ny_loc, MPI_DOUBLE, k2_v, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Gather(k2_h_loc, Nx * Ny_loc, MPI_DOUBLE, k2_h, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
+    cout << "k2 Calculations finished" << endl;
+
     // Calculating k3 = f(yn+dt*k2/2) =============================
 
     // reset temp values in root rank
+    if (world_rank == root)
+    {
+        cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+        cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+        cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+        // update un to un+dt*k2/2 to evaluate f for k3
+        cblas_daxpy(Nx * Ny, dt / 2.0, k2_u, 1, tu, 1);
+        cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
+        cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
+    }
 
-    // update un to un+dt*k2/2 to evaluate f for k3
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt / 2.0, k2_h, 1, th, 1);
+    MPI_Bcast(tu, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(tv, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
     Evaluate_fu(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
     Evaluate_fv(tu, tu_loc, tv, tv_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
@@ -380,17 +405,26 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     MPI_Gather(k3_v_loc, Nx * Ny_loc, MPI_DOUBLE, k3_v, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Gather(k3_h_loc, Nx * Ny_loc, MPI_DOUBLE, k3_h, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
+    cout << "k3 Calculations finished" << endl;
+
     // k4 = f(yn+dt*k3) ===========================================
     // reset temp values in root rank
 
-    cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
-    cblas_dcopy(Nx * Ny, v, 1, tv, 1);
-    cblas_dcopy(Nx * Ny, h, 1, th, 1);
+    if (world_rank == root)
+    {
+        cblas_dcopy(Nx * Ny, u, 1, tu, 1); // reset tu to u
+        cblas_dcopy(Nx * Ny, v, 1, tv, 1);
+        cblas_dcopy(Nx * Ny, h, 1, th, 1);
 
-    // update un to un+dt*k2/2 to evaluate f for k3
-    cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
-    cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
-    cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
+        // update un to un+dt*k2/2 to evaluate f for k3
+        cblas_daxpy(Nx * Ny, dt, k3_u, 1, tu, 1);
+        cblas_daxpy(Nx * Ny, dt, k3_v, 1, tv, 1);
+        cblas_daxpy(Nx * Ny, dt, k3_h, 1, th, 1);
+    }
+    
+    MPI_Bcast(tu, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(tv, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(th, Nx * Ny, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
     Evaluate_fu(tu, tu_loc, tv, v_loc, th, th_loc, Nx, Ny, dx, dy, fu_loc, world_size, world_rank);
     Evaluate_fv(tu, tu_loc, tv, v_loc, th, th_loc, Nx, Ny, dx, dy, fv_loc, world_size, world_rank);
@@ -408,6 +442,8 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
     MPI_Gather(k4_u_loc, Nx * Ny_loc, MPI_DOUBLE, k4_u, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Gather(k4_v_loc, Nx * Ny_loc, MPI_DOUBLE, k4_v, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
     MPI_Gather(k4_h_loc, Nx * Ny_loc, MPI_DOUBLE, k4_h, Nx * Ny_loc, MPI_DOUBLE, root, MPI_COMM_WORLD);
+
+    cout << "k4 Calculations finished" << endl;
 
     // yn+1 = yn + 1/6*(k1+2*k2+2*k3+k4)*dt
     // Update solution in root
@@ -473,7 +509,7 @@ void TimeIntegration(double *u, double *v, double *h, double *u_loc, double *v_l
 
 int main(int argc, char *argv[])
 {
-    cout << "Goodbye World" << endl;
+    cout << "Almost there boy" << endl;
 
     // Read parameters from command line =========================
     po::options_description options("Available Options.");
