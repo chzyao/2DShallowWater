@@ -126,7 +126,7 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
 
             for (int j = 0; j < m_Ny; ++j)
             {
-                deriv[i * m_Nx + j] =
+                deriv[i * m_Ny + j] =
                     py *
                     (-u[i * m_Ny + (j - 3 + m_Ny) % m_Ny] / 60.0 + 3.0 / 20.0 * u[i * m_Ny + (j - 2 + m_Ny) % m_Ny] -
                      3.0 / 4.0 * u[i * m_Ny + (j - 1 + m_Ny) % m_Ny] + 3.0 / 4.0 * u[i * m_Ny + (j + 1) % m_Ny] -
@@ -222,66 +222,6 @@ void ShallowWater::Evaluate_fh(double *u, double *v, double *h, double *f)
     delete[] hv;
 }
 
-// void ShallowWater::Evaluate_fu_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
-// {
-//     double g = 9.81;
-//     double *deriux = new double[Nx * Ny];
-//     double *deriuy = new double[Nx * Ny];
-//     double *derihx = new double[Nx * Ny];
-
-//     SpatialDiscretisation(u, Nx, Ny, dx, dy, 'x', deriux);
-//     SpatialDiscretisation(u, Nx, Ny, dx, dy, 'y', deriuy);
-//     SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', derihx);
-
-//     cblas_ddot(Nx * Ny, u, 1, deriux, 1);
-//     cblas_daxpy(Nx * Ny, -1.0, deriux, 1, f, 1);
-
-//     cblas_ddot(Nx * Ny, u, 1, deriuy, 1);
-//     cblas_daxpy(Nx * Ny, -1.0, deriuy, 1, f, 1);
-
-//     cblas_ddot(Nx * Ny, h, 1, derihx, 1);
-//     cblas_daxpy(Nx * Ny, -1.0, derihx, 1, f, 1);
-// }
-
-// void ShallowWater::Evaluate_fv_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
-// {
-//     double g = 9.81;
-//     double *derivx = new double[Nx * Ny];
-//     double *derivy = new double[Nx * Ny];
-//     double *derihy = new double[Nx * Ny];
-
-//     SpatialDiscretisation(v, Nx, Ny, dx, dy, 'x', derivx);
-//     SpatialDiscretisation(v, Nx, Ny, dx, dy, 'y', derivy);
-//     SpatialDiscretisation(h, Nx, Ny, dx, dy, 'y', derihy);
-
-//     cblas_ddot(Nx * Ny, u, 1, derivx, 1);
-//     cblas_daxpy(Nx * Ny, -1.0, derivx, 1, f, 1);
-
-//     cblas_ddot(Nx * Ny, u, 1, derivy, 1);
-//     cblas_daxpy(Nx * Ny, -1.0, derivy, 1, f, 1);
-
-//     cblas_ddot(Nx * Ny, h, 1, derihy, 1);
-//     cblas_daxpy(Nx * Ny, -1.0, derihy, 1, f, 1);
-// }
-
-// void ShallowWater::Evaluate_fh_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
-// {
-//     double *derihux = new double[Nx * Ny];
-//     double *derihvy = new double[Nx * Ny];
-//     double *hu = new double[Nx * Ny];
-//     double *hv = new double[Nx * Ny];
-
-//     SpatialDiscretisation(hu, Nx, Ny, dx, dy, 'x', derihux);
-//     SpatialDiscretisation(hv, Nx, Ny, dx, dy, 'y', derihvy);
-
-//     cblas_ddot(Nx * Ny, h, 1, u, 1);
-//     cblas_dcopy(Nx * Ny, u, 1, hu, 1);
-//     cblas_daxpy(Nx * Ny, -1.0, hu, 1, f, 1);
-
-//     cblas_ddot(Nx * Ny, h, 1, v, 1);
-//     cblas_dcopy(Nx * Ny, u, 1, hv, 1);
-//     cblas_daxpy(Nx * Ny, -1.0, hv, 1, f, 1);
-// }
 
 void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, double *fv, double *fh)
 {
@@ -462,12 +402,13 @@ void ShallowWater::Solve()
     // Write initial condition
     ofstream vOut("output.txt", ios::out | ios ::trunc);
     vOut.precision(5);
-    for (int i = 0; i < m_Nx; ++i)
+    for (int j = 0; j < m_Ny; ++j)
     {
-        for (int j = 0; j < m_Ny; ++j)
+        for (int i = 0; i < m_Nx; ++i)
         {
             vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Ny + j] << setw(15) << m_v[i * m_Ny + j] << setw(15) << m_h[i * m_Ny + j] << endl;
         }
+        vOut << endl;
     }
 
     // Memory deallocations
