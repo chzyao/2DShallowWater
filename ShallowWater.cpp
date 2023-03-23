@@ -10,7 +10,6 @@ using namespace std;
 namespace po = boost::program_options;
 
 ShallowWater::ShallowWater()
-    : m_dt(0.1), m_T(80.0), m_Nx(100), m_Ny(100), m_ic(4)
 {
 }
 
@@ -97,7 +96,6 @@ void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
     // copy the initial surface height h0 to h as initial conditions
     cblas_dcopy(m_Nx * m_Ny, m_h0, 1, h, 1);
 }
-
 void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
 {
     // LOOP Based Approach=====================================================
@@ -144,15 +142,117 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
     // BLAS based Approach ====================================================
     else if (m_method == 'b')
     {
+        const int ku = 3;            // superdiags
+        const int kl = 3;            // subdiags
+        const int lda = 1 + ku + kl; // leading dimensions
+        double *A;                   // Banded Matrix to be filled
+
+        // Temp vector to store the column element of u
+        double *u_col;
+        // Temp vector to store the column element of deriv
+        double *deriv_col;
+
         // Discretisation in x-dir ============================================
         if (dir == 'x')
         {
+            A = new double[lda * m_Nx];
+            double px = 1.0 / m_dx;
+            // coefficient of stencil in x-dir
+            double coeff_x[7] = {1.0 / 60.0 * px, -3.0 / 20.0 * px, 3.0 / 4.0 * px, 0.0, -3.0 / 4.0 * px, 3.0 / 20.0 * px, -1.0 / 60.0 * px};
+
+            for (int i = 0; i < m_Nx; ++i)
+            {
+                A[i * lda] = coeff_x[0];     // upper diag 1
+                A[i * lda + 1] = coeff_x[1]; // upper diag 2
+                A[i * lda + 2] = coeff_x[2]; // upper diag 3
+                A[i * lda + 3] = coeff_x[3]; // diag
+                A[i * lda + 4] = coeff_x[4]; // lower diag 1
+                A[i * lda + 5] = coeff_x[5]; // lower diag 2
+                A[i * lda + 6] = coeff_x[6]; // lower diag 3
+            }
+
+            u_col = new double[m_Ny];
+            deriv_col = new double[m_Ny];
+
+            // BLAS dgbmv and for loop to find deriv
+            for (int i = 0; i < m_Nx; ++i)
+            {
+                for (int j = 0; j < m_Ny; ++j)
+                {
+                    u_col[j] = u[i * m_Ny + j];
+                }
+
+                cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny, m_Nx, kl, ku, 1.0, A, lda, u_col, 1, 0.0, deriv_col, 1);
+
+                // Handling periodic BC
+                deriv_col[0] = deriv_col[0] + coeff_x[6] * u_col[m_Ny - 3] + coeff_x[5] * u_col[m_Ny - 2] + coeff_x[4] * u_col[m_Ny - 1];
+                deriv_col[1] = deriv_col[1] + coeff_x[6] * u_col[m_Ny - 2] + coeff_x[5] * u_col[m_Ny - 1];
+                deriv_col[2] = deriv_col[2] + coeff_x[6] * u_col[m_Ny - 1];
+
+                deriv_col[m_Ny - 3] = deriv_col[m_Ny - 3] + coeff_x[0] * u_col[0];
+                deriv_col[m_Ny - 2] = deriv_col[m_Ny - 2] + coeff_x[0] * u_col[0] + coeff_x[1] * u_col[1];
+                deriv_col[m_Ny - 1] = deriv_col[m_Ny - 1] + coeff_x[0] * u_col[0] + coeff_x[1] * u_col[1] + coeff_x[2] * u_col[2];
+
+                for (int j = 0; j < m_Ny; ++j)
+                {
+                    deriv[i * m_Ny + j] = deriv_col[j];
+                }
+            }
         }
 
         // Discretisation in y-dir ============================================
         else if (dir == 'y')
         {
+            double py = 1.0 / m_dy;
+            A = new double[lda * m_Ny];
+
+            // coefficient of stencil in y-dir
+            double coeff_y[7] = {1.0 / 60.0 * py, -3.0 / 20.0 * py, 3.0 / 4.0 * py, 0.0, -3.0 / 4.0 * py, 3.0 / 20.0 * py, -1.0 / 60.0 * py};
+
+            for (int i = 0; i < m_Ny; ++i)
+            {
+                A[i * lda] = coeff_y[0];     // upper diag 1
+                A[i * lda + 1] = coeff_y[1]; // upper diag 2
+                A[i * lda + 2] = coeff_y[2]; // upper diag 3
+                A[i * lda + 3] = coeff_y[3]; // diag
+                A[i * lda + 4] = coeff_y[4]; // lower diag 1
+                A[i * lda + 5] = coeff_y[5]; // lower diag 2
+                A[i * lda + 6] = coeff_y[6]; // lower diag 3
+            }
+
+            u_col = new double[m_Nx];
+            deriv_col = new double[m_Nx];
+
+            // BLAS dgbmv and for loop to find deriv
+            for (int j = 0; j < m_Ny; ++j)
+            {
+                for (int i = 0; i < m_Nx; ++i)
+                {
+                    u_col[i] = u[i * m_Ny + j];
+                }
+
+                cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx, m_Ny, kl, ku, 1.0, A, lda, u_col, 1, 0.0, deriv_col, 1);
+
+                // Handling periodic BC
+                deriv_col[0] = deriv_col[0] + coeff_y[6] * u_col[m_Nx - 3] + coeff_y[5] * u_col[m_Nx - 2] + coeff_y[4] * u_col[m_Nx - 1];
+                deriv_col[1] = deriv_col[1] + coeff_y[6] * u_col[m_Nx - 2] + coeff_y[5] * u_col[m_Nx - 1];
+                deriv_col[2] = deriv_col[2] + coeff_y[6] * u_col[m_Nx - 1];
+
+                deriv_col[m_Nx - 3] = deriv_col[m_Nx - 3] + coeff_y[0] * u_col[0];
+                deriv_col[m_Nx - 2] = deriv_col[m_Nx - 2] + coeff_y[0] * u_col[0] + coeff_y[1] * u_col[1];
+                deriv_col[m_Nx - 1] = deriv_col[m_Nx - 1] + coeff_y[0] * u_col[0] + coeff_y[1] * u_col[1] + coeff_y[2] * u_col[2];
+
+                for (int k = 0; k < m_Nx; ++k)
+                {
+                    deriv[k * m_Ny + j] = deriv_col[k];
+                }
+            }
         }
+
+        // deallocations
+        delete[] u_col;
+        delete[] deriv_col;
+        delete[] A;
     }
 }
 
@@ -168,38 +268,29 @@ void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *fu, doubl
     double *derihx = new double[m_Nx * m_Ny];
     double *derihy = new double[m_Nx * m_Ny];
 
-    // Loop Based Approach ==================================================
-    if (m_method == 'l')
+    SpatialDiscretisation(u, 'x', deriux);
+    SpatialDiscretisation(u, 'y', deriuy);
+
+    SpatialDiscretisation(v, 'x', derivx);
+    SpatialDiscretisation(v, 'y', derivy);
+
+    SpatialDiscretisation(h, 'x', derihx);
+    SpatialDiscretisation(h, 'y', derihy);
+
+    for (int i = 0; i < m_Nx; ++i)
     {
-        SpatialDiscretisation(u, 'x', deriux);
-        SpatialDiscretisation(u, 'y', deriuy);
-
-        SpatialDiscretisation(v, 'x', derivx);
-        SpatialDiscretisation(v, 'y', derivy);
-
-        SpatialDiscretisation(h, 'x', derihx);
-        SpatialDiscretisation(h, 'y', derihy);
-
-        for (int i = 0; i < m_Nx; ++i)
+        for (int j = 0; j < m_Ny; ++j)
         {
-            for (int j = 0; j < m_Ny; ++j)
-            {
-                fu[i * m_Ny + j] = -u[i * m_Ny + j] * deriux[i * m_Ny + j] -
-                                   v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
-                                   g * derihx[i * m_Ny + j];
+            fu[i * m_Ny + j] = -u[i * m_Ny + j] * deriux[i * m_Ny + j] -
+                               v[i * m_Ny + j] * deriuy[i * m_Ny + j] -
+                               g * derihx[i * m_Ny + j];
 
-                fv[i * m_Ny + j] = -u[i * m_Ny + j] * derivx[i * m_Ny + j] -
-                                   v[i * m_Ny + j] * derivy[i * m_Ny + j] -
-                                   g * derihy[i * m_Ny + j];
+            fv[i * m_Ny + j] = -u[i * m_Ny + j] * derivx[i * m_Ny + j] -
+                               v[i * m_Ny + j] * derivy[i * m_Ny + j] -
+                               g * derihy[i * m_Ny + j];
 
-                fh[i * m_Ny + j] = -h[i * m_Ny + j] * deriux[i * m_Ny + j] - u[i * m_Ny + j] * derihx[i * m_Ny + j] - h[i * m_Ny + j] * derivy[i * m_Ny + j] - v[i * m_Ny + j] * derihy[i * m_Ny + j];
-            }
+            fh[i * m_Ny + j] = -h[i * m_Ny + j] * deriux[i * m_Ny + j] - u[i * m_Ny + j] * derihx[i * m_Ny + j] - h[i * m_Ny + j] * derivy[i * m_Ny + j] - v[i * m_Ny + j] * derihy[i * m_Ny + j];
         }
-    }
-
-    else if (m_method == 'b')
-    {
-
     }
 
     delete[] deriux;
@@ -211,8 +302,6 @@ void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *fu, doubl
     delete[] derihx;
     delete[] derihy;
 }
-
-
 
 void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, double *fv, double *fh)
 {
@@ -245,10 +334,6 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
 
     Evaluate_f(tu, tv, th, fu, fv, fh);
 
-    // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
-
     cblas_dcopy(m_Nx * m_Ny, fu, 1, k1_u, 1);
     cblas_dcopy(m_Nx * m_Ny, fv, 1, k1_v, 1);
     cblas_dcopy(m_Nx * m_Ny, fh, 1, k1_h, 1);
@@ -267,10 +352,6 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
     // Evaluate new f
     Evaluate_f(tu, tv, th, fu, fv, fh);
 
-    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
-
     cblas_dcopy(m_Nx * m_Ny, fu, 1, k2_u, 1);
     cblas_dcopy(m_Nx * m_Ny, fv, 1, k2_v, 1);
     cblas_dcopy(m_Nx * m_Ny, fh, 1, k2_h, 1);
@@ -288,10 +369,6 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
 
     Evaluate_f(tu, tv, th, fu, fv, fh);
 
-    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
-
     cblas_dcopy(m_Nx * m_Ny, fu, 1, k3_u, 1);
     cblas_dcopy(m_Nx * m_Ny, fv, 1, k3_v, 1);
     cblas_dcopy(m_Nx * m_Ny, fh, 1, k3_h, 1);
@@ -308,10 +385,6 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
     cblas_daxpy(m_Nx * m_Ny, m_dt, k3_h, 1, th, 1);
 
     Evaluate_f(tu, tv, th, fu, fv, fh);
-
-    // Evaluate_fu_BLAS(tu, tv, th, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(tu, tv, th, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(tu, tv, th, Nx, Ny, dx, dy, fh);
 
     cblas_dcopy(m_Nx * m_Ny, fu, 1, k4_u, 1);
     cblas_dcopy(m_Nx * m_Ny, fv, 1, k4_v, 1);
