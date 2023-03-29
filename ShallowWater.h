@@ -22,11 +22,11 @@ protected:
 
     void SetInitialConditions(Comm::MPI_Info *mpi_info);
 
-    void SpatialDiscretisation(double *u, char dir, double *deriv);
+    void SpatialDiscretisation(double *u, double *u_loc, char dir, double *deriv, double *deriv_loc, Comm::MPI_Info *mpi_info);
 
-    void Evaluate_f(double *u, double *v, double *h, double *fu, double *fv, double *fh);
+    void Evaluate_f(double *u, double *v, double *h, double *u_loc, double *v_loc, double *h_loc, double *fu_loc, double *fv_loc, double *fh_loc, Comm::MPI_Info *mpi_info);
 
-    void TimeIntegration(double *u, double *v, double *h, double *fu, double *fv, double *fh);
+    void TimeIntegration(double *u, double *v, double *h, double *fu, double *fv, double *fh, Comm::MPI_Info *mpi_info);
 
 private:
     double m_dt;
