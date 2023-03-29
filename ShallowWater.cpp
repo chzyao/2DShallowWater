@@ -142,8 +142,8 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
     // BLAS based Approach ====================================================
     else if (m_method == 'b')
     {
-        const int ku = 3;            // superdiags
-        const int kl = 3;            // subdiags
+        const int ku = 6;            // superdiags
+        const int kl = 0;            // subdiags
         const int lda = 1 + ku + kl; // leading dimensions
         double *A;                   // Banded Matrix to be filled
 
@@ -155,47 +155,47 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
         // Discretisation in x-dir ============================================
         if (dir == 'x')
         {
-            A = new double[lda * m_Nx];
+            A = new double[lda * (m_Nx + 6)];
             double px = 1.0 / m_dx;
             // coefficient of stencil in x-dir
-            double coeff_x[7] = {1.0 / 60.0 * px, -3.0 / 20.0 * px, 3.0 / 4.0 * px, 0.0, -3.0 / 4.0 * px, 3.0 / 20.0 * px, -1.0 / 60.0 * px};
+            double coeff_x[7] = {1.0 / 60.0 * px, -3.0 / 20.0 * px, 3.0 / 4.0 * px, 0.0,
+                                 -3.0 / 4.0 * px, 3.0 / 20.0 * px, -1.0 / 60.0 * px};
 
-            for (int i = 0; i < m_Nx; ++i)
+            for (int i = 0; i < m_Nx + 6; ++i)
             {
-                A[i * lda] = coeff_x[0];     // upper diag 1
-                A[i * lda + 1] = coeff_x[1]; // upper diag 2
-                A[i * lda + 2] = coeff_x[2]; // upper diag 3
-                A[i * lda + 3] = coeff_x[3]; // diag
-                A[i * lda + 4] = coeff_x[4]; // lower diag 1
-                A[i * lda + 5] = coeff_x[5]; // lower diag 2
-                A[i * lda + 6] = coeff_x[6]; // lower diag 3
+                A[i * lda] = coeff_x[0];     // original upper diag 1
+                A[i * lda + 1] = coeff_x[1]; // original upper diag 2
+                A[i * lda + 2] = coeff_x[2]; // original upper diag 3
+                A[i * lda + 3] = coeff_x[3]; // original diag
+                A[i * lda + 4] = coeff_x[4]; // original lower diag 1
+                A[i * lda + 5] = coeff_x[5]; // original lower diag 2
+                A[i * lda + 6] = coeff_x[6]; // original lower diag 3
             }
 
-            u_col = new double[m_Ny];
-            deriv_col = new double[m_Ny];
+            u_col = new double[m_Nx + 6];
+            deriv_col = new double[m_Nx + 6];
 
             // BLAS dgbmv and for loop to find deriv
-            for (int i = 0; i < m_Nx; ++i)
+            for (int j = 0; j < m_Ny; ++j)
             {
-                for (int j = 0; j < m_Ny; ++j)
+                for (int i = 0; i < m_Nx; ++i)
                 {
-                    u_col[j] = u[i * m_Ny + j];
+                    u_col[i + 3] = u[i * m_Ny + j];
                 }
-
-                cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny, m_Nx, kl, ku, 1.0, A, lda, u_col, 1, 0.0, deriv_col, 1);
-
                 // Handling periodic BC
-                deriv_col[0] = deriv_col[0] + coeff_x[6] * u_col[m_Ny - 3] + coeff_x[5] * u_col[m_Ny - 2] + coeff_x[4] * u_col[m_Ny - 1];
-                deriv_col[1] = deriv_col[1] + coeff_x[6] * u_col[m_Ny - 2] + coeff_x[5] * u_col[m_Ny - 1];
-                deriv_col[2] = deriv_col[2] + coeff_x[6] * u_col[m_Ny - 1];
+                u_col[0] = u_col[m_Nx];
+                u_col[1] = u_col[m_Nx + 1];
+                u_col[2] = u_col[m_Nx + 2];
+                u_col[m_Nx + 3] = u_col[3];
+                u_col[m_Nx + 4] = u_col[4];
+                u_col[m_Nx + 5] = u_col[5];
 
-                deriv_col[m_Ny - 3] = deriv_col[m_Ny - 3] + coeff_x[0] * u_col[0];
-                deriv_col[m_Ny - 2] = deriv_col[m_Ny - 2] + coeff_x[0] * u_col[0] + coeff_x[1] * u_col[1];
-                deriv_col[m_Ny - 1] = deriv_col[m_Ny - 1] + coeff_x[0] * u_col[0] + coeff_x[1] * u_col[1] + coeff_x[2] * u_col[2];
+                cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx + 6, m_Nx + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
+                            deriv_col, 1);
 
-                for (int j = 0; j < m_Ny; ++j)
+                for (int i = 0; i < m_Nx; ++i)
                 {
-                    deriv[i * m_Ny + j] = deriv_col[j];
+                    deriv[i * m_Ny + j] = deriv_col[i];
                 }
             }
         }
@@ -204,47 +204,47 @@ void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
         else if (dir == 'y')
         {
             double py = 1.0 / m_dy;
-            A = new double[lda * m_Ny];
+            A = new double[lda * (m_Ny + 6)];
 
             // coefficient of stencil in y-dir
-            double coeff_y[7] = {1.0 / 60.0 * py, -3.0 / 20.0 * py, 3.0 / 4.0 * py, 0.0, -3.0 / 4.0 * py, 3.0 / 20.0 * py, -1.0 / 60.0 * py};
+            double coeff_y[7] = {-1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0,
+                                 3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
 
-            for (int i = 0; i < m_Ny; ++i)
+            for (int i = 0; i < m_Ny + 6; ++i)
             {
-                A[i * lda] = coeff_y[0];     // upper diag 1
-                A[i * lda + 1] = coeff_y[1]; // upper diag 2
-                A[i * lda + 2] = coeff_y[2]; // upper diag 3
-                A[i * lda + 3] = coeff_y[3]; // diag
-                A[i * lda + 4] = coeff_y[4]; // lower diag 1
-                A[i * lda + 5] = coeff_y[5]; // lower diag 2
-                A[i * lda + 6] = coeff_y[6]; // lower diag 3
+                A[i * lda] = coeff_y[0];     // original upper diag 1
+                A[i * lda + 1] = coeff_y[1]; // original upper diag 2
+                A[i * lda + 2] = coeff_y[2]; // original upper diag 3
+                A[i * lda + 3] = coeff_y[3]; // original diag
+                A[i * lda + 4] = coeff_y[4]; // original lower diag 1
+                A[i * lda + 5] = coeff_y[5]; // original lower diag 2
+                A[i * lda + 6] = coeff_y[6]; // original lower diag 3
             }
 
-            u_col = new double[m_Nx];
-            deriv_col = new double[m_Nx];
+            u_col = new double[m_Ny + 6];
+            deriv_col = new double[m_Ny + 6];
 
             // BLAS dgbmv and for loop to find deriv
-            for (int j = 0; j < m_Ny; ++j)
+            for (int i = 0; i < m_Nx; ++i)
             {
-                for (int i = 0; i < m_Nx; ++i)
+                for (int j = 0; j < m_Ny; ++j)
                 {
-                    u_col[i] = u[i * m_Ny + j];
+                    u_col[j + 3] = u[i * m_Ny + j];
                 }
-
-                cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx, m_Ny, kl, ku, 1.0, A, lda, u_col, 1, 0.0, deriv_col, 1);
-
                 // Handling periodic BC
-                deriv_col[0] = deriv_col[0] + coeff_y[6] * u_col[m_Nx - 3] + coeff_y[5] * u_col[m_Nx - 2] + coeff_y[4] * u_col[m_Nx - 1];
-                deriv_col[1] = deriv_col[1] + coeff_y[6] * u_col[m_Nx - 2] + coeff_y[5] * u_col[m_Nx - 1];
-                deriv_col[2] = deriv_col[2] + coeff_y[6] * u_col[m_Nx - 1];
+                u_col[0] = u_col[m_Ny];
+                u_col[1] = u_col[m_Ny + 1];
+                u_col[2] = u_col[m_Ny + 2];
+                u_col[m_Ny + 3] = u_col[3];
+                u_col[m_Ny + 4] = u_col[4];
+                u_col[m_Ny + 5] = u_col[5];
 
-                deriv_col[m_Nx - 3] = deriv_col[m_Nx - 3] + coeff_y[0] * u_col[0];
-                deriv_col[m_Nx - 2] = deriv_col[m_Nx - 2] + coeff_y[0] * u_col[0] + coeff_y[1] * u_col[1];
-                deriv_col[m_Nx - 1] = deriv_col[m_Nx - 1] + coeff_y[0] * u_col[0] + coeff_y[1] * u_col[1] + coeff_y[2] * u_col[2];
+                cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny + 6, m_Ny + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
+                            deriv_col, 1);
 
-                for (int k = 0; k < m_Nx; ++k)
+                for (int j = 0; j < m_Ny; ++j)
                 {
-                    deriv[k * m_Ny + j] = deriv_col[k];
+                    deriv[i * m_Ny + j] = deriv_col[j];
                 }
             }
         }
