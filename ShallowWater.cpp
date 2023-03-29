@@ -1,4 +1,5 @@
 #include "ShallowWater.h"
+#include "Comm.h"
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <cmath>
@@ -62,39 +63,48 @@ void ShallowWater::SetParameters(int argc, char *argv[])
     m_dy = 1.0;
 }
 
-void ShallowWater::SetInitialConditions(double *u, double *v, double *h)
+void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
 {
-    for (int i = 0; i < m_Nx; ++i)
+    // Generate Initial conditions in root rank
+    if (mpi_info->m_rank == 0)
     {
-        for (int j = 0; j < m_Ny; ++j)
+        for (int i = 0; i < m_Nx; ++i)
         {
-            // All coded in row-major for now
-            u[i * m_Ny + j] = 0.0;
-            v[i * m_Ny + j] = 0.0;
-            if (m_ic == 1)
+            for (int j = 0; j < m_Ny; ++j)
             {
-                m_h0[i * m_Ny + j] = 10.0 + exp(-(i * m_dx - 50) * (i * m_dx - 50) / 25.0);
-            }
-            else if (m_ic == 2)
-            {
-                m_h0[i * m_Ny + j] = 10.0 + exp(-(j * m_dy - 50) * (j * m_dy - 50) / 25.0);
-            }
-            else if (m_ic == 3)
-            {
-                m_h0[i * m_Ny + j] = 10.0 + exp(
-                                                -((i * m_dx - 50) * (i * m_dx - 50) + (j * m_dy - 50) * (j * m_dy - 50)) /
-                                                25.0);
-            }
-            else
-            {
-                m_h0[i * m_Ny + j] = 10.0 + exp(-((i * m_dx - 25) * (i * m_dx - 25) + (j * m_dy - 25) * (j * m_dy - 25)) / 25.0) +
-                                     exp(-((i * m_dx - 75) * (i * m_dx - 75) + (j * m_dy - 75) * (j * m_dy - 75)) / 25.0);
+                // All coded in row-major for now
+                m_u[i * m_Ny + j] = 0.0;
+                m_v[i * m_Ny + j] = 0.0;
+                if (m_ic == 1)
+                {
+                    m_h0[i * m_Ny + j] = 10.0 + exp(-(i * m_dx - 50) * (i * m_dx - 50) / 25.0);
+                }
+                else if (m_ic == 2)
+                {
+                    m_h0[i * m_Ny + j] = 10.0 + exp(-(j * m_dy - 50) * (j * m_dy - 50) / 25.0);
+                }
+                else if (m_ic == 3)
+                {
+                    m_h0[i * m_Ny + j] = 10.0 + exp(
+                                                    -((i * m_dx - 50) * (i * m_dx - 50) + (j * m_dy - 50) * (j * m_dy - 50)) /
+                                                    25.0);
+                }
+                else
+                {
+                    m_h0[i * m_Ny + j] = 10.0 + exp(-((i * m_dx - 25) * (i * m_dx - 25) + (j * m_dy - 25) * (j * m_dy - 25)) / 25.0) +
+                                         exp(-((i * m_dx - 75) * (i * m_dx - 75) + (j * m_dy - 75) * (j * m_dy - 75)) / 25.0);
+                }
             }
         }
+
+        // copy the initial surface height h0 to h as initial conditions
+        cblas_dcopy(m_Nx * m_Ny, m_h0, 1, m_h, 1);
     }
 
-    // copy the initial surface height h0 to h as initial conditions
-    cblas_dcopy(m_Nx * m_Ny, m_h0, 1, h, 1);
+    // Scatter to each rank
+    MPI_Scatter(m_u, m_Nx * m_Ny_loc, MPI_DOUBLE, m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatter(m_v, m_Nx * m_Ny_loc, MPI_DOUBLE, m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatter(m_h, m_Nx * m_Ny_loc, MPI_DOUBLE, m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
 }
 void ShallowWater::SpatialDiscretisation(double *u, char dir, double *deriv)
 {
@@ -425,46 +435,71 @@ void ShallowWater::TimeIntegration(double *u, double *v, double *h, double *fu, 
     delete[] k4_h;
 }
 
-void ShallowWater::Solve()
+void ShallowWater::Solve(int argc, char *argv[])
 {
-
-    // Memory Allocation for solution fields
-    m_u = new double[m_Nx * m_Ny];
-    m_v = new double[m_Nx * m_Ny];
-    m_h = new double[m_Nx * m_Ny];
-    m_h0 = new double[m_Nx * m_Ny];
 
     double *fu = new double[m_Nx * m_Ny];
     double *fv = new double[m_Nx * m_Ny];
     double *fh = new double[m_Nx * m_Ny];
 
+    // ======================================================
+    // Create MPI Comminications
+    Comm comm;
+    Comm::MPI_Info mpi_info;
+    m_Ny_loc = comm.CreateMPI(argc, argv, m_Ny, &mpi_info);
+    cout << "Ny_loc" << m_Ny_loc << endl;
+
+    // Memory Allocation for local solution fields
+    m_u_loc = new double[m_Nx * m_Ny_loc];
+    m_v_loc = new double[m_Nx * m_Ny_loc];
+    m_h_loc = new double[m_Nx * m_Ny_loc];
+
+    // Memory Allocation for solution fields (root rank)
+    if (mpi_info.m_rank == 0)
+    {
+        m_u = new double[m_Nx * m_Ny];
+        m_v = new double[m_Nx * m_Ny];
+        m_h = new double[m_Nx * m_Ny];
+        m_h0 = new double[m_Nx * m_Ny];
+    }
     //  =====================================================
     // Set Initial conditions
-    SetInitialConditions(m_u, m_v, m_h);
+    SetInitialConditions(&mpi_info);
 
     // ======================================================
     // 4th order RK Time Integrations
 
-    // Time advancement
-    double time = 0.0; // start time
-    while (time <= m_T)
-    {
-        TimeIntegration(m_u, m_v, m_h, fu, fv, fh);
-        time += m_dt;
-    }
+    // // Time advancement
+    // double time = 0.0; // start time
+    // while (time <= m_T)
+    // {
+    //     TimeIntegration(m_u, m_v, m_h, fu, fv, fh);
+    //     time += m_dt;
+    // }
+
+    // Gather Solutions
+    cout << "Hi" << endl;
+    MPI_Gather(m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_u, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info.m_comm);
+    MPI_Gather(m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_v, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info.m_comm);
+    MPI_Gather(m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_h, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info.m_comm);
 
     // ======================================================
     // Write to file
     // Write initial condition
-    ofstream vOut("output.txt", ios::out | ios ::trunc);
-    vOut.precision(5);
-    for (int j = 0; j < m_Ny; ++j)
+
+    // Write in root rank
+    if (mpi_info.m_rank == 0)
     {
-        for (int i = 0; i < m_Nx; ++i)
+        ofstream vOut("output.txt", ios::out | ios ::trunc);
+        vOut.precision(5);
+        for (int j = 0; j < m_Ny; ++j)
         {
-            vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Ny + j] << setw(15) << m_v[i * m_Ny + j] << setw(15) << m_h[i * m_Ny + j] << endl;
+            for (int i = 0; i < m_Nx; ++i)
+            {
+                vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Ny + j] << setw(15) << m_v[i * m_Ny + j] << setw(15) << m_h[i * m_Ny + j] << endl;
+            }
+            vOut << endl;
         }
-        vOut << endl;
     }
 
     // Memory deallocations
@@ -473,9 +508,15 @@ void ShallowWater::Solve()
     delete[] m_h;
     delete[] m_h0;
 
+    delete[] m_u_loc;
+    delete[] m_v_loc;
+    delete[] m_h_loc;
+
     delete[] fu;
     delete[] fv;
     delete[] fh;
+
+    MPI_Finalize();
 }
 
 ShallowWater::~ShallowWater()

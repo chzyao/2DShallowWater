@@ -1,6 +1,7 @@
 #ifndef SHALLOWWATER_H
 #define SHALLOWWATER_H
 
+#include "Comm.h"
 #include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
@@ -13,13 +14,13 @@ public:
 
     void SetParameters(int argc, char *argv[]);
 
-    void Solve();
+    void Solve(int argc, char *argv[]);
 
     ~ShallowWater();
 
 protected:
 
-    void SetInitialConditions(double *u, double *v, double *h);
+    void SetInitialConditions(Comm::MPI_Info *mpi_info);
 
     void SpatialDiscretisation(double *u, char dir, double *deriv);
 
@@ -32,6 +33,7 @@ private:
     double m_T;
     int m_Nx;
     int m_Ny;
+    int m_Ny_loc; // local Ny (for MPI)
     int m_ic;
     double m_dx;
     double m_dy;
@@ -42,6 +44,10 @@ private:
     double *m_v;
     double *m_h;
     double *m_h0; // initial condition
+
+    double *m_u_loc;
+    double *m_v_loc;
+    double *m_h_loc;
 };
 
 
