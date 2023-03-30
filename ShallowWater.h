@@ -39,12 +39,13 @@ private:
     double m_dy;
     char m_method;
 
-    // Solutions
+    // Global solution fields
     double *m_u;
     double *m_v;
     double *m_h;
     double *m_h0; // initial condition
 
+    // Local solution fields
     double *m_u_loc;
     double *m_v_loc;
     double *m_h_loc;

@@ -50,7 +50,7 @@ void ShallowWater::SetParameters(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // Assign parameters
+    // Encapsulate command-line input parameters
     m_dt = vm["dt"].as<double>();
     m_T = vm["T"].as<double>();
     m_Nx = vm["Nx"].as<int>();
