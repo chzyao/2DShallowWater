@@ -102,19 +102,19 @@ void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
     }
 
     // Scatter to each rank
-    MPI_Scatter(m_u, m_Nx * m_Ny_loc, MPI_DOUBLE, m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Scatter(m_v, m_Nx * m_Ny_loc, MPI_DOUBLE, m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Scatter(m_h, m_Nx * m_Ny_loc, MPI_DOUBLE, m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatterv(m_u, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatterv(m_v, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatterv(m_h, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
 }
 
 void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, double *deriv, double *deriv_loc, Comm::MPI_Info *mpi_info)
 {
     // Gather results of u
-    MPI_Gather(u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, u, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, u, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
     if (mpi_info->m_rank == 0)
     {
-        // LOOP Based Approach=====================================================
+        // LOOP Based Approach ================================
         if (m_method == 'l')
         {
             // Discretisation in x-dir ============================================
@@ -273,7 +273,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
     }
 
     // Scatter to each process
-    MPI_Scatter(deriv, m_Nx * m_Ny_loc, MPI_DOUBLE, deriv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatterv(deriv, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, deriv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
 }
 
 void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *u_loc, double *v_loc, double *h_loc, double *fu_loc, double *fv_loc, double *fh_loc, Comm::MPI_Info *mpi_info)
@@ -403,9 +403,9 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     cblas_dcopy(m_Nx * m_Ny_loc, v_loc, 1, tv_loc, 1);
     cblas_dcopy(m_Nx * m_Ny_loc, h_loc, 1, th_loc, 1);
 
-    MPI_Gather(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gather(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gather(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
     Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc, mpi_info);
 
@@ -424,9 +424,9 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt / 2.0, k1_v, 1, tv_loc, 1);
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt / 2.0, k1_h, 1, th_loc, 1);
 
-    MPI_Gather(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gather(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gather(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
     // Evaluate new f
     Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc, mpi_info);
@@ -446,9 +446,9 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt / 2.0, k2_v, 1, tv_loc, 1);
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt / 2.0, k2_h, 1, th_loc, 1);
 
-    MPI_Gather(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gather(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gather(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
     Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc, mpi_info);
 
@@ -467,9 +467,9 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt, k3_v, 1, tv_loc, 1);
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt, k3_h, 1, th_loc, 1);
 
-    MPI_Gather(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gather(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gather(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
     Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc, mpi_info);
 
@@ -532,6 +532,7 @@ void ShallowWater::Solve(int argc, char *argv[])
     Comm::MPI_Info mpi_info;
     m_Ny_loc = comm.CreateMPI(argc, argv, m_Ny, &mpi_info);
     cout << "Ny_loc" << m_Ny_loc << endl;
+    comm.CalcSendParams(m_Nx, &mpi_info);
 
     // Memory Allocation for local solution fields
     m_u_loc = new double[m_Nx * m_Ny_loc];
@@ -567,9 +568,9 @@ void ShallowWater::Solve(int argc, char *argv[])
     }
 
     // Gather to global solution fields
-    MPI_Gather(m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_u, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info.m_comm);
-    MPI_Gather(m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_v, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info.m_comm);
-    MPI_Gather(m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_h, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info.m_comm);
+    MPI_Gatherv(m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_u, mpi_info.recvcounts, mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
+    MPI_Gatherv(m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_v, mpi_info.recvcounts, mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
+    MPI_Gatherv(m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_h, mpi_info.recvcounts, mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
 
     // ======================================================
     // Write to file
@@ -607,6 +608,7 @@ void ShallowWater::Solve(int argc, char *argv[])
     delete[] fv_loc;
     delete[] fh_loc;
 
+    comm.DeallocateSendParams(&mpi_info);
     MPI_Finalize();
 }
 

@@ -36,42 +36,52 @@ int Comm::CreateMPI(int argc, char *argv[], int Ny, MPI_Info *mpi_info)
     {
         m_Ny_loc = chunk_size;
     }
-    
+
     // Store Ny_loc of each rank to an array for later use in Scatterv and Gatherv
-    mpi_info->m_Ny_loc_array = new int [mpi_info->m_size];
+    mpi_info->m_Ny_loc_array = new int[mpi_info->m_size];
     mpi_info->m_Ny_loc_array[mpi_info->m_rank] = m_Ny_loc;
 
-    return m_Ny_loc;
+    // Make sure that every rank has m_Ny_loc_array for calcuting send params in later stages
+    MPI_Allgather(&m_Ny_loc, 1, MPI_INT, mpi_info->m_Ny_loc_array, 1, MPI_INT, MPI_COMM_WORLD);
 
+
+    return m_Ny_loc;
 }
 
 void Comm::CalcSendParams(int Nx, MPI_Info *mpi_info)
 {
-    // Array of size of send buffer in each rank
-    mpi_info->sendcounts = new int[mpi_info->m_size];
-    for (int i = 0; i < mpi_info->m_size; ++i)
-    {
-        mpi_info->sendcounts[i] = Nx * mpi_info->m_Ny_loc_array[i];
-    }
+    mpi_info->sendcounts = nullptr;
+    mpi_info->recvcounts = nullptr;
+    mpi_info->displs = nullptr;
 
-    // Array of offset displacement of send buffer in each rank
-    mpi_info->displs = new int[mpi_info->m_size];
-    mpi_info->displs[0] = 0;
-    for (int i = 0; i < mpi_info->m_size; ++i)
+    if (mpi_info->m_rank == 0)
     {
-        mpi_info->displs[i] = mpi_info->displs[i - 1] + mpi_info->sendcounts[i - 1];
-    }
+        // Array of size of send buffer in each rank
+        mpi_info->sendcounts = new int[mpi_info->m_size];
+        mpi_info->recvcounts = new int[mpi_info->m_size];
+        for (int i = 0; i < mpi_info->m_size; ++i)
+        {
+            mpi_info->sendcounts[i] = Nx * mpi_info->m_Ny_loc_array[i];
+            mpi_info->recvcounts[i] = Nx * mpi_info->m_Ny_loc_array[i];
+            cout << "rank: " << i << ",  send count" << mpi_info->sendcounts[i] << endl;
+        }
 
+        // Array of offset displacement of send buffer in each rank
+        mpi_info->displs = new int[mpi_info->m_size];
+        mpi_info->displs[0] = 0;
+        for (int i = 1; i < mpi_info->m_size; ++i)
+        {
+            mpi_info->displs[i] = mpi_info->displs[i - 1] + mpi_info->sendcounts[i - 1];
+            cout << "rank: " << i << ",  displs" << mpi_info->displs[i] << endl;
+        }
+    }
 }
 
-
-void Comm::DeallocateSendParams(int Nx, MPI_Info *mpi_info)
+void Comm::DeallocateSendParams(MPI_Info *mpi_info)
 {
     delete[] mpi_info->sendcounts;
     delete[] mpi_info->displs;
 }
-
-
 
 Comm::~Comm()
 {

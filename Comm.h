@@ -18,6 +18,7 @@ public:
 
         // Send parameters for Scatterv and Gatherv
         int *sendcounts; // array of sizes of each send buffer
+        int *recvcounts; // array of sizes of each receive buffer
         int *displs;     // array of offsets of each send buffer
 
     } MPI_Info;
@@ -26,7 +27,7 @@ public:
 
     void CalcSendParams(int Nx, MPI_Info *mpi_info);
 
-    void DeallocateSendParams(int Nx, MPI_Info *mpi_info);
+    void DeallocateSendParams(MPI_Info *mpi_info);
 
     ~Comm();
 
