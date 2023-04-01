@@ -1,0 +1,10 @@
+### Start Fri Mar 31 16:56:16 2023
+# /apps/dev-studio/12.6/bin/../bin/er_archive -n -O /home/cy620/2DShallowWater/test.7.er/_x6.er/er_archive.log /home/cy620/2DShallowWater/test.7.er/_x6.er
+Copying `/home/cy620/2DShallowWater/main'  to `/home/cy620/2DShallowWater/test.7.er/archives/main_Au3fMPV85Vf'
+Copying `/usr/lib/x86_64-linux-gnu/libz.so.1.2.11'  to `/home/cy620/2DShallowWater/test.7.er/archives/libz.so.1.2.11_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libopen-pal.so.40.30.0'  to `/home/cy620/2DShallowWater/test.7.er/archives/libopen-pal.so.40.30.0_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/librt-2.31.so'  to `/home/cy620/2DShallowWater/test.7.er/archives/librt-2.31.so_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libpthread-2.31.so'  to `/home/cy620/2DShallowWater/test.7.er/archives/libpthread-2.31.so_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libc-2.31.so'  to `/home/cy620/2DShallowWater/test.7.er/archives/libc-2.31.so_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28'  to `/home/cy620/2DShallowWater/test.7.er/archives/libstdc++.so.6.0.28_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libmpi_cxx.so.40.30.0'  to `/home/cy620/2DShallowWater/test.7.er/archives/libmpi_cxx.so.40.30.0_dnWuQRcLhw9'

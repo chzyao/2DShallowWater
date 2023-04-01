@@ -1,0 +1,13 @@
+### Start Fri Mar 31 16:59:46 2023
+# /apps/dev-studio/12.6/bin/../bin/er_archive -n -O /home/cy620/2DShallowWater/test.8.er/_x6.er/er_archive.log /home/cy620/2DShallowWater/test.8.er/_x6.er
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_bfrops_v20.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_bfrops_v20.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_ptl_tool.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_ptl_tool.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_ptl_server.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_ptl_server.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_gds_hash.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_gds_hash.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_preg_native.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_preg_native.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_btl_self.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_btl_self.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/libmca_common_monitoring.so.50.20.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libmca_common_monitoring.so.50.20.0_dnWuQRcLhw9'
+Copying `/usr/lib/libpsm1/libpsm_infinipath.so.1.16'  to `/home/cy620/2DShallowWater/test.8.er/archives/libpsm_infinipath.so.1.16_LW6XUxGbv93'
+Copying `/usr/lib/x86_64-linux-gnu/libmca_common_ofi.so.10.0.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libmca_common_ofi.so.10.0.0_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_coll_sync.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_coll_sync.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_coll_self.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_coll_self.so_1fcNkoDIWK0'

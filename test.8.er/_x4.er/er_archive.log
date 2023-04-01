@@ -1,0 +1,9 @@
+### Start Fri Mar 31 16:59:46 2023
+# /apps/dev-studio/12.6/bin/../bin/er_archive -n -O /home/cy620/2DShallowWater/test.8.er/_x4.er/er_archive.log /home/cy620/2DShallowWater/test.8.er/_x4.er
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_op_avx.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_op_avx.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_allocator_basic.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_allocator_basic.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_mpool_hugepage.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_mpool_hugepage.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_btl_sm.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_btl_sm.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_pml_ob1.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_pml_ob1.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/libfabric.so.1.14.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libfabric.so.1.14.0_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_osc_sm.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_osc_sm.so_1fcNkoDIWK0'

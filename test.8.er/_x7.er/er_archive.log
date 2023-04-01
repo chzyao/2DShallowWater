@@ -1,0 +1,18 @@
+### Start Fri Mar 31 16:59:46 2023
+# /apps/dev-studio/12.6/bin/../bin/er_archive -n -O /home/cy620/2DShallowWater/test.8.er/_x7.er/er_archive.log /home/cy620/2DShallowWater/test.8.er/_x7.er
+Copying `/home/cy620/2DShallowWater/main'  to `/home/cy620/2DShallowWater/test.8.er/archives/main_Au3fMPV85Vf'
+Copying `/usr/lib/x86_64-linux-gnu/libhwloc.so.15.4.1'  to `/home/cy620/2DShallowWater/test.8.er/archives/libhwloc.so.15.4.1_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libopen-rte.so.40.30.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libopen-rte.so.40.30.0_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libc-2.31.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/libc-2.31.so_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libmpi.so.40.30.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libmpi.so.40.30.0_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/blas/libblas.so.3.9.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libblas.so.3.9.0_1eKUsC07yK7'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_shmem_sysv.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_shmem_sysv.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_shmem_posix.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_shmem_posix.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_reachable_netlink.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_reachable_netlink.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_schizo_ompi.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_schizo_ompi.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_ess_pmi.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_ess_pmi.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_pmix_flux.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_pmix_flux.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_psquash_flex128.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_psquash_flex128.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_bfrops_v12.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_bfrops_v12.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_gds_ds21.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_gds_ds21.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_preg_raw.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_preg_raw.so_dU1net7nSj5'

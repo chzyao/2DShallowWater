@@ -1,0 +1,16 @@
+### Start Fri Mar 31 16:59:46 2023
+# /apps/dev-studio/12.6/bin/../bin/er_archive -n -O /home/cy620/2DShallowWater/test.8.er/_x5.er/er_archive.log /home/cy620/2DShallowWater/test.8.er/_x5.er
+Copying `/usr/lib/x86_64-linux-gnu/pmix2/lib/pmix/mca_plog_syslog.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_plog_syslog.so_dU1net7nSj5'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_state_orted.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_state_orted.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_state_app.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_state_app.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_state_hnp.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_state_hnp.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_errmgr_default_hnp.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_errmgr_default_hnp.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/libuuid.so.1.3.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libuuid.so.1.3.0_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/libnl-route-3.so.200.26.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libnl-route-3.so.200.26.0_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/librdmacm.so.1.3.33.2'  to `/home/cy620/2DShallowWater/test.8.er/archives/librdmacm.so.1.3.33.2_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_coll_inter.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_coll_inter.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_coll_monitoring.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_coll_monitoring.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_coll_tuned.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_coll_tuned.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/libmca_common_sm.so.40.30.0'  to `/home/cy620/2DShallowWater/test.8.er/archives/libmca_common_sm.so.40.30.0_dnWuQRcLhw9'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_coll_han.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_coll_han.so_1fcNkoDIWK0'
+Copying `/usr/lib/x86_64-linux-gnu/openmpi/lib/openmpi3/mca_osc_rdma.so'  to `/home/cy620/2DShallowWater/test.8.er/archives/mca_osc_rdma.so_1fcNkoDIWK0'
