@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <fstream>
 #include <cblas.h>
+#include <omp.h>
 
 using namespace std;
 namespace po = boost::program_options;
@@ -68,6 +69,7 @@ void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
     // Generate Initial conditions in root rank
     if (mpi_info->m_rank == 0)
     {
+#pragma omp parallel for
         for (int i = 0; i < m_Nx; ++i)
         {
             for (int j = 0; j < m_Ny; ++j)
@@ -121,7 +123,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             if (dir == 'x')
             {
                 double px = 1.0 / m_dx;
-
+#pragma omp parallel for
                 for (int i = 0; i < m_Nx; ++i)
                 {
                     for (int j = 0; j < m_Ny; ++j)
@@ -139,7 +141,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             else if (dir == 'y')
             {
                 double py = 1.0 / m_dy;
-
+#pragma omp parallel for
                 for (int i = 0; i < m_Nx; ++i)
                 {
 
@@ -191,6 +193,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                 u_col = new double[m_Nx + 6];
                 deriv_col = new double[m_Nx + 6];
 
+#pragma omp parallel for private(u_col, deriv_col)
                 // BLAS dgbmv and for loop to find deriv
                 for (int j = 0; j < m_Ny; ++j)
                 {
@@ -226,6 +229,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                 double coeff_y[7] = {-1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0,
                                      3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
 
+#pragma omp parallel for private(u_col, deriv_col)
                 for (int i = 0; i < m_Ny + 6; ++i)
                 {
                     A[i * lda] = coeff_y[0];     // original upper diag 1
