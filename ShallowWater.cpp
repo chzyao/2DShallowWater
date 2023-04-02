@@ -123,16 +123,37 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             if (dir == 'x')
             {
                 double px = 1.0 / m_dx;
+
+                double coeff_x[7] = {-1.0 / 60.0 * px, 3.0 / 20.0 * px, -3.0 / 4.0 * px, 0.0, 3.0 / 4.0 * px, -3.0 / 20.0 * px, 1.0 / 60.0 * px};
+
 #pragma omp parallel for
                 for (int i = 0; i < m_Nx; ++i)
                 {
                     for (int j = 0; j < m_Ny; ++j)
                     {
+                        int i_minus_1 = i - 1;
+                        int i_minus_2 = i - 2;
+                        int i_minus_3 = i - 3;
+                        int i_plus_1 = i + 1;
+                        int i_plus_2 = i + 2;
+                        int i_plus_3 = i + 3;
+
+                        if (i_minus_1 < 0)
+                            i_minus_1 += m_Nx;
+                        if (i_minus_2 < 0)
+                            i_minus_2 += m_Nx;
+                        if (i_minus_3 < 0)
+                            i_minus_3 += m_Nx;
+                        if (i_plus_1 >= m_Nx)
+                            i_plus_1 -= m_Nx;
+                        if (i_plus_2 >= m_Nx)
+                            i_plus_2 -= m_Nx;
+                        if (i_plus_3 >= m_Nx)
+                            i_plus_3 -= m_Nx;
+
                         deriv[i * m_Ny + j] =
-                            px *
-                            (-u[((i - 3 + m_Nx) % m_Nx) * m_Ny + j] / 60.0 + 3.0 / 20.0 * u[((i - 2 + m_Nx) % m_Nx) * m_Ny + j] -
-                             3.0 / 4.0 * u[((i - 1 + m_Nx) % m_Nx) * m_Ny + j] + 3.0 / 4.0 * u[((i + 1) % m_Nx) * m_Ny + j] -
-                             3.0 / 20.0 * u[((i + 2) % m_Nx) * m_Ny + j] + u[((i + 3) % m_Nx) * m_Ny + j] / 60.0);
+                            (coeff_x[0] * u[i_minus_3 * m_Ny + j] + coeff_x[1] * u[i_minus_2 * m_Ny + j] +
+                             coeff_x[2] * u[i_minus_1 * m_Ny + j] + coeff_x[4] * u[i_plus_1 * m_Ny + j] + coeff_x[5] * u[i_plus_2 * m_Ny + j] + coeff_x[6] * u[i_plus_3 * m_Ny + j]);
                     }
                 }
             }
@@ -141,17 +162,37 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             else if (dir == 'y')
             {
                 double py = 1.0 / m_dy;
+
+                double coeff_y[7] = {-1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0, 3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
+
 #pragma omp parallel for
                 for (int i = 0; i < m_Nx; ++i)
                 {
 
                     for (int j = 0; j < m_Ny; ++j)
                     {
+                        int j_minus_1 = j - 1;
+                        int j_minus_2 = j - 2;
+                        int j_minus_3 = j - 3;
+                        int j_plus_1 = j + 1;
+                        int j_plus_2 = j + 2;
+                        int j_plus_3 = j + 3;
+
+                        if (j_minus_1 < 0)
+                            j_minus_1 += m_Ny;
+                        if (j_minus_2 < 0)
+                            j_minus_2 += m_Ny;
+                        if (j_minus_3 < 0)
+                            j_minus_3 += m_Ny;
+                        if (j_plus_1 >= m_Ny)
+                            j_plus_1 -= m_Ny;
+                        if (j_plus_2 >= m_Ny)
+                            j_plus_2 -= m_Ny;
+                        if (j_plus_3 >= m_Ny)
+                            j_plus_3 -= m_Ny;
+
                         deriv[i * m_Ny + j] =
-                            py *
-                            (-u[i * m_Ny + (j - 3 + m_Ny) % m_Ny] / 60.0 + 3.0 / 20.0 * u[i * m_Ny + (j - 2 + m_Ny) % m_Ny] -
-                             3.0 / 4.0 * u[i * m_Ny + (j - 1 + m_Ny) % m_Ny] + 3.0 / 4.0 * u[i * m_Ny + (j + 1) % m_Ny] -
-                             3.0 / 20.0 * u[i * m_Ny + (j + 2) % m_Ny] + u[i * m_Ny + (j + 3) % m_Ny] / 60.0);
+                            (coeff_y[0] * u[i * m_Ny + j_minus_3] + coeff_y[1] * u[i * m_Ny + j_minus_2] + coeff_y[2] * u[i * m_Ny + j_minus_1] + coeff_y[4] * u[i * m_Ny + j_plus_1] + coeff_y[5] * u[i * m_Ny + j_plus_2] + coeff_y[6] * u[i * m_Ny + j_plus_3]);
                     }
                 }
             }
@@ -229,7 +270,6 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                 double coeff_y[7] = {-1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0,
                                      3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
 
-#pragma omp parallel for private(u_col, deriv_col)
                 for (int i = 0; i < m_Ny + 6; ++i)
                 {
                     A[i * lda] = coeff_y[0];     // original upper diag 1
@@ -244,6 +284,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                 u_col = new double[m_Ny + 6];
                 deriv_col = new double[m_Ny + 6];
 
+#pragma omp parallel for private(u_col, deriv_col)
                 // BLAS dgbmv and for loop to find deriv
                 for (int i = 0; i < m_Nx; ++i)
                 {
