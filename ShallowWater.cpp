@@ -69,7 +69,7 @@ void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
     // Generate Initial conditions in root rank
     if (mpi_info->m_rank == 0)
     {
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for
         for (int i = 0; i < m_Nx; ++i)
         {
             for (int j = 0; j < m_Ny; ++j)
@@ -109,6 +109,16 @@ void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
     MPI_Scatterv(m_h, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
 }
 
+inline int ShallowWater::modify_boundary_idx(int idx, int bc_size)
+{
+    if (idx < 0)
+        return idx + bc_size;
+    else if (idx >= bc_size)
+        return idx - bc_size;
+    else 
+        return idx;
+}
+
 void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, double *deriv, double *deriv_loc, Comm::MPI_Info *mpi_info)
 {
     // Gather results of u
@@ -126,34 +136,21 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
 
                 double coeff_x[7] = {-1.0 / 60.0 * px, 3.0 / 20.0 * px, -3.0 / 4.0 * px, 0.0, 3.0 / 4.0 * px, -3.0 / 20.0 * px, 1.0 / 60.0 * px};
 
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for
                 for (int i = 0; i < m_Nx; ++i)
                 {
                     for (int j = 0; j < m_Ny; ++j)
                     {
-                        int i_minus_1 = i - 1;
-                        int i_minus_2 = i - 2;
-                        int i_minus_3 = i - 3;
-                        int i_plus_1 = i + 1;
-                        int i_plus_2 = i + 2;
-                        int i_plus_3 = i + 3;
-
-                        if (i_minus_1 < 0)
-                            i_minus_1 += m_Nx;
-                        if (i_minus_2 < 0)
-                            i_minus_2 += m_Nx;
-                        if (i_minus_3 < 0)
-                            i_minus_3 += m_Nx;
-                        if (i_plus_1 >= m_Nx)
-                            i_plus_1 -= m_Nx;
-                        if (i_plus_2 >= m_Nx)
-                            i_plus_2 -= m_Nx;
-                        if (i_plus_3 >= m_Nx)
-                            i_plus_3 -= m_Nx;
+                        // Handling BC conditions
+                        int i_modified[6] = {-3, -2, -1, 1, 2, 3};
+                        for (int k = 0; k < 6; ++k)
+                        {
+                            i_modified[k] = modify_boundary_idx(i + i_modified[k],m_Nx);
+                        }
 
                         deriv[i * m_Ny + j] =
-                            (coeff_x[0] * u[i_minus_3 * m_Ny + j] + coeff_x[1] * u[i_minus_2 * m_Ny + j] +
-                             coeff_x[2] * u[i_minus_1 * m_Ny + j] + coeff_x[4] * u[i_plus_1 * m_Ny + j] + coeff_x[5] * u[i_plus_2 * m_Ny + j] + coeff_x[6] * u[i_plus_3 * m_Ny + j]);
+                            (coeff_x[0] * u[i_modified[0] * m_Ny + j] + coeff_x[1] * u[i_modified[1] * m_Ny + j] +
+                             coeff_x[2] * u[i_modified[2] * m_Ny + j] + coeff_x[4] * u[i_modified[3] * m_Ny + j] + coeff_x[5] * u[i_modified[4] * m_Ny + j] + coeff_x[6] * u[i_modified[5] * m_Ny + j]);
                     }
                 }
             }
@@ -165,34 +162,21 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
 
                 double coeff_y[7] = {-1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0, 3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
 
-#pragma omp parallel for collapse(2)
+#pragma omp parallel for
                 for (int i = 0; i < m_Nx; ++i)
                 {
 
                     for (int j = 0; j < m_Ny; ++j)
                     {
-                        int j_minus_1 = j - 1;
-                        int j_minus_2 = j - 2;
-                        int j_minus_3 = j - 3;
-                        int j_plus_1 = j + 1;
-                        int j_plus_2 = j + 2;
-                        int j_plus_3 = j + 3;
-
-                        if (j_minus_1 < 0)
-                            j_minus_1 += m_Ny;
-                        if (j_minus_2 < 0)
-                            j_minus_2 += m_Ny;
-                        if (j_minus_3 < 0)
-                            j_minus_3 += m_Ny;
-                        if (j_plus_1 >= m_Ny)
-                            j_plus_1 -= m_Ny;
-                        if (j_plus_2 >= m_Ny)
-                            j_plus_2 -= m_Ny;
-                        if (j_plus_3 >= m_Ny)
-                            j_plus_3 -= m_Ny;
+                        int j_modified[6] = {-3, -2, -1, 1, 2, 3};
+                        
+                        for (int k = 0; k < 6; ++k)
+                        {
+                            j_modified[k] = modify_boundary_idx(j + j_modified[k], m_Ny);
+                        }
 
                         deriv[i * m_Ny + j] =
-                            (coeff_y[0] * u[i * m_Ny + j_minus_3] + coeff_y[1] * u[i * m_Ny + j_minus_2] + coeff_y[2] * u[i * m_Ny + j_minus_1] + coeff_y[4] * u[i * m_Ny + j_plus_1] + coeff_y[5] * u[i * m_Ny + j_plus_2] + coeff_y[6] * u[i * m_Ny + j_plus_3]);
+                            (coeff_y[0] * u[i * m_Ny + j_modified[0]] + coeff_y[1] * u[i * m_Ny + j_modified[1]] + coeff_y[2] * u[i * m_Ny + j_modified[2]] + coeff_y[4] * u[i * m_Ny + j_modified[3]] + coeff_y[5] * u[i * m_Ny + j_modified[4]] + coeff_y[6] * u[i * m_Ny + j_modified[5]]);
                     }
                 }
             }

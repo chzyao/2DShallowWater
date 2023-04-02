@@ -22,6 +22,8 @@ protected:
 
     void SetInitialConditions(Comm::MPI_Info *mpi_info);
 
+    inline int modify_boundary_idx(int idx, int bc_size);
+
     void SpatialDiscretisation(double *u, double *u_loc, char dir, double *deriv, double *deriv_loc, Comm::MPI_Info *mpi_info);
 
     void Evaluate_f(double *u, double *v, double *h, double *u_loc, double *v_loc, double *h_loc, double *fu_loc, double *fv_loc, double *fh_loc, Comm::MPI_Info *mpi_info);
