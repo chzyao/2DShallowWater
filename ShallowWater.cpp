@@ -109,16 +109,6 @@ void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
     MPI_Scatterv(m_h, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
 }
 
-inline int ShallowWater::modify_boundary_idx(int idx, int bc_size)
-{
-    if (idx < 0)
-        return idx + bc_size;
-    else if (idx >= bc_size)
-        return idx - bc_size;
-    else 
-        return idx;
-}
-
 void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, double *deriv, double *deriv_loc, Comm::MPI_Info *mpi_info)
 {
     // Gather results of u
@@ -141,16 +131,29 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                 {
                     for (int j = 0; j < m_Ny; ++j)
                     {
-                        // Handling BC conditions
-                        int i_modified[6] = {-3, -2, -1, 1, 2, 3};
-                        for (int k = 0; k < 6; ++k)
-                        {
-                            i_modified[k] = modify_boundary_idx(i + i_modified[k],m_Nx);
-                        }
+                        int i_minus_1 = i - 1;
+                        int i_minus_2 = i - 2;
+                        int i_minus_3 = i - 3;
+                        int i_plus_1 = i + 1;
+                        int i_plus_2 = i + 2;
+                        int i_plus_3 = i + 3;
+
+                        if (i_minus_1 < 0)
+                            i_minus_1 += m_Nx;
+                        if (i_minus_2 < 0)
+                            i_minus_2 += m_Nx;
+                        if (i_minus_3 < 0)
+                            i_minus_3 += m_Nx;
+                        if (i_plus_1 >= m_Nx)
+                            i_plus_1 -= m_Nx;
+                        if (i_plus_2 >= m_Nx)
+                            i_plus_2 -= m_Nx;
+                        if (i_plus_3 >= m_Nx)
+                            i_plus_3 -= m_Nx;
 
                         deriv[i * m_Ny + j] =
-                            (coeff_x[0] * u[i_modified[0] * m_Ny + j] + coeff_x[1] * u[i_modified[1] * m_Ny + j] +
-                             coeff_x[2] * u[i_modified[2] * m_Ny + j] + coeff_x[4] * u[i_modified[3] * m_Ny + j] + coeff_x[5] * u[i_modified[4] * m_Ny + j] + coeff_x[6] * u[i_modified[5] * m_Ny + j]);
+                            (coeff_x[0] * u[i_minus_3 * m_Ny + j] + coeff_x[1] * u[i_minus_2 * m_Ny + j] +
+                             coeff_x[2] * u[i_minus_1 * m_Ny + j] + coeff_x[4] * u[i_plus_1 * m_Ny + j] + coeff_x[5] * u[i_plus_2 * m_Ny + j] + coeff_x[6] * u[i_plus_3 * m_Ny + j]);
                     }
                 }
             }
@@ -168,21 +171,34 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
 
                     for (int j = 0; j < m_Ny; ++j)
                     {
-                        int j_modified[6] = {-3, -2, -1, 1, 2, 3};
-                        
-                        for (int k = 0; k < 6; ++k)
-                        {
-                            j_modified[k] = modify_boundary_idx(j + j_modified[k], m_Ny);
-                        }
+                        int j_minus_1 = j - 1;
+                        int j_minus_2 = j - 2;
+                        int j_minus_3 = j - 3;
+                        int j_plus_1 = j + 1;
+                        int j_plus_2 = j + 2;
+                        int j_plus_3 = j + 3;
+
+                        if (j_minus_1 < 0)
+                            j_minus_1 += m_Ny;
+                        if (j_minus_2 < 0)
+                            j_minus_2 += m_Ny;
+                        if (j_minus_3 < 0)
+                            j_minus_3 += m_Ny;
+                        if (j_plus_1 >= m_Ny)
+                            j_plus_1 -= m_Ny;
+                        if (j_plus_2 >= m_Ny)
+                            j_plus_2 -= m_Ny;
+                        if (j_plus_3 >= m_Ny)
+                            j_plus_3 -= m_Ny;
 
                         deriv[i * m_Ny + j] =
-                            (coeff_y[0] * u[i * m_Ny + j_modified[0]] + coeff_y[1] * u[i * m_Ny + j_modified[1]] + coeff_y[2] * u[i * m_Ny + j_modified[2]] + coeff_y[4] * u[i * m_Ny + j_modified[3]] + coeff_y[5] * u[i * m_Ny + j_modified[4]] + coeff_y[6] * u[i * m_Ny + j_modified[5]]);
+                            (coeff_y[0] * u[i * m_Ny + j_minus_3] + coeff_y[1] * u[i * m_Ny + j_minus_2] + coeff_y[2] * u[i * m_Ny + j_minus_1] + coeff_y[4] * u[i * m_Ny + j_plus_1] + coeff_y[5] * u[i * m_Ny + j_plus_2] + coeff_y[6] * u[i * m_Ny + j_plus_3]);
                     }
                 }
             }
         }
 
-        // BLAS based Approach ====================================================
+        // BLAS based Approach ================================================
         else if (m_method == 'b')
         {
             const int ku = 6;            // superdiags
@@ -190,12 +206,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             const int lda = 1 + ku + kl; // leading dimensions
             double *A;                   // Banded Matrix to be filled
 
-            // Temp vector to store the column element of u
-            double *u_col;
-            // Temp vector to store the column element of deriv
-            double *deriv_col;
-
-            // Discretisation in x-dir ============================================
+            // Discretisation in x-dir =======================
             if (dir == 'x')
             {
                 A = new double[lda * (m_Nx + 6)];
@@ -215,32 +226,41 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                     A[i * lda + 6] = coeff_x[6]; // original lower diag 3
                 }
 
-                u_col = new double[m_Nx + 6];
-                deriv_col = new double[m_Nx + 6];
-
-#pragma omp parallel for private(u_col, deriv_col)
-                // BLAS dgbmv and for loop to find deriv
-                for (int j = 0; j < m_Ny; ++j)
+#pragma omp parallel
                 {
-                    for (int i = 0; i < m_Nx; ++i)
-                    {
-                        u_col[i + 3] = u[i * m_Ny + j];
-                    }
-                    // Handling periodic BC
-                    u_col[0] = u_col[m_Nx];
-                    u_col[1] = u_col[m_Nx + 1];
-                    u_col[2] = u_col[m_Nx + 2];
-                    u_col[m_Nx + 3] = u_col[3];
-                    u_col[m_Nx + 4] = u_col[4];
-                    u_col[m_Nx + 5] = u_col[5];
+                    // Temp vector to store the column element of u
+                    double *u_col = new double[m_Nx + 6];
+                    // Temp vector to store the column element of deriv
+                    double *deriv_col = new double[m_Nx + 6];
 
-                    cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx + 6, m_Nx + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
-                                deriv_col, 1);
-
-                    for (int i = 0; i < m_Nx; ++i)
+#pragma omp for
+                    // BLAS dgbmv and for loop to find deriv
+                    for (int j = 0; j < m_Ny; ++j)
                     {
-                        deriv[i * m_Ny + j] = deriv_col[i];
+                        for (int i = 0; i < m_Nx; ++i)
+                        {
+                            u_col[i + 3] = u[i * m_Ny + j];
+                        }
+                        // Handling periodic BC
+                        u_col[0] = u_col[m_Nx];
+                        u_col[1] = u_col[m_Nx + 1];
+                        u_col[2] = u_col[m_Nx + 2];
+                        u_col[m_Nx + 3] = u_col[3];
+                        u_col[m_Nx + 4] = u_col[4];
+                        u_col[m_Nx + 5] = u_col[5];
+
+                        cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx + 6, m_Nx + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
+                                    deriv_col, 1);
+
+                        for (int i = 0; i < m_Nx; ++i)
+                        {
+                            deriv[i * m_Ny + j] = deriv_col[i];
+                        }
                     }
+
+                    // Deallocations
+                    delete[] u_col;
+                    delete[] deriv_col;
                 }
             }
 
@@ -264,39 +284,44 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                     A[i * lda + 5] = coeff_y[5]; // original lower diag 2
                     A[i * lda + 6] = coeff_y[6]; // original lower diag 3
                 }
-
-                u_col = new double[m_Ny + 6];
-                deriv_col = new double[m_Ny + 6];
-
-#pragma omp parallel for private(u_col, deriv_col)
-                // BLAS dgbmv and for loop to find deriv
-                for (int i = 0; i < m_Nx; ++i)
+#pragma omp parallel
                 {
-                    for (int j = 0; j < m_Ny; ++j)
-                    {
-                        u_col[j + 3] = u[i * m_Ny + j];
-                    }
-                    // Handling periodic BC
-                    u_col[0] = u_col[m_Ny];
-                    u_col[1] = u_col[m_Ny + 1];
-                    u_col[2] = u_col[m_Ny + 2];
-                    u_col[m_Ny + 3] = u_col[3];
-                    u_col[m_Ny + 4] = u_col[4];
-                    u_col[m_Ny + 5] = u_col[5];
+                    // Temp vector to store the column element of u
+                    double *u_col = new double[m_Ny + 6];
+                    // Temp vector to store the column element of deriv
+                    double *deriv_col = new double[m_Ny + 6];
 
-                    cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny + 6, m_Ny + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
-                                deriv_col, 1);
-
-                    for (int j = 0; j < m_Ny; ++j)
+#pragma omp for
+                    // BLAS dgbmv and for loop to find deriv
+                    for (int i = 0; i < m_Nx; ++i)
                     {
-                        deriv[i * m_Ny + j] = deriv_col[j];
+                        for (int j = 0; j < m_Ny; ++j)
+                        {
+                            u_col[j + 3] = u[i * m_Ny + j];
+                        }
+                        // Handling periodic BC
+                        u_col[0] = u_col[m_Ny];
+                        u_col[1] = u_col[m_Ny + 1];
+                        u_col[2] = u_col[m_Ny + 2];
+                        u_col[m_Ny + 3] = u_col[3];
+                        u_col[m_Ny + 4] = u_col[4];
+                        u_col[m_Ny + 5] = u_col[5];
+
+                        cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny + 6, m_Ny + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
+                                    deriv_col, 1);
+
+                        for (int j = 0; j < m_Ny; ++j)
+                        {
+                            deriv[i * m_Ny + j] = deriv_col[j];
+                        }
                     }
+
+                    // Deallocations
+                    delete[] u_col;
+                    delete[] deriv_col;
                 }
             }
 
-            // deallocations
-            delete[] u_col;
-            delete[] deriv_col;
             delete[] A;
         }
     }
@@ -560,7 +585,7 @@ void ShallowWater::Solve(int argc, char *argv[])
     Comm comm;
     Comm::MPI_Info mpi_info;
     m_Ny_loc = comm.CreateMPI(argc, argv, m_Ny, &mpi_info);
-    cout << "Ny_loc" << m_Ny_loc << endl;
+    cout << "Ny_loc: " << m_Ny_loc << endl;
     comm.CalcSendParams(m_Nx, &mpi_info);
 
     // Memory Allocation for local solution fields

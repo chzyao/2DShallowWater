@@ -63,7 +63,7 @@ void Comm::CalcSendParams(int Nx, MPI_Info *mpi_info)
         {
             mpi_info->sendcounts[i] = Nx * mpi_info->m_Ny_loc_array[i];
             mpi_info->recvcounts[i] = Nx * mpi_info->m_Ny_loc_array[i];
-            cout << "rank: " << i << ",  send count" << mpi_info->sendcounts[i] << endl;
+            // cout << "rank: " << i << ",  send count: " << mpi_info->sendcounts[i] << endl;
         }
 
         // Array of offset displacement of send buffer in each rank
@@ -72,7 +72,7 @@ void Comm::CalcSendParams(int Nx, MPI_Info *mpi_info)
         for (int i = 1; i < mpi_info->m_size; ++i)
         {
             mpi_info->displs[i] = mpi_info->displs[i - 1] + mpi_info->sendcounts[i - 1];
-            cout << "rank: " << i << ",  displs" << mpi_info->displs[i] << endl;
+            // cout << "rank: " << i << ",  displs" << mpi_info->displs[i] << endl;
         }
     }
 }
