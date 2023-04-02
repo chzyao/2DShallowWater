@@ -206,6 +206,11 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             const int lda = 1 + ku + kl; // leading dimensions
             double *A;                   // Banded Matrix to be filled
 
+            // Temp vector to store the column element of u
+            double *u_col;
+            // Temp vector to store the column element of deriv
+            double *deriv_col;
+
             // Discretisation in x-dir =======================
             if (dir == 'x')
             {
@@ -226,45 +231,37 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                     A[i * lda + 6] = coeff_x[6]; // original lower diag 3
                 }
 
-#pragma omp parallel
+                // Temp vector to store the column element of u
+                u_col = new double[m_Nx + 6];
+                // Temp vector to store the column element of deriv
+                deriv_col = new double[m_Nx + 6];
+
+                // BLAS dgbmv and for loop to find deriv
+                for (int j = 0; j < m_Ny; ++j)
                 {
-                    // Temp vector to store the column element of u
-                    double *u_col = new double[m_Nx + 6];
-                    // Temp vector to store the column element of deriv
-                    double *deriv_col = new double[m_Nx + 6];
-
-#pragma omp for
-                    // BLAS dgbmv and for loop to find deriv
-                    for (int j = 0; j < m_Ny; ++j)
+                    for (int i = 0; i < m_Nx; ++i)
                     {
-                        for (int i = 0; i < m_Nx; ++i)
-                        {
-                            u_col[i + 3] = u[i * m_Ny + j];
-                        }
-                        // Handling periodic BC
-                        u_col[0] = u_col[m_Nx];
-                        u_col[1] = u_col[m_Nx + 1];
-                        u_col[2] = u_col[m_Nx + 2];
-                        u_col[m_Nx + 3] = u_col[3];
-                        u_col[m_Nx + 4] = u_col[4];
-                        u_col[m_Nx + 5] = u_col[5];
-
-                        cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx + 6, m_Nx + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
-                                    deriv_col, 1);
-
-                        for (int i = 0; i < m_Nx; ++i)
-                        {
-                            deriv[i * m_Ny + j] = deriv_col[i];
-                        }
+                        u_col[i + 3] = u[i * m_Ny + j];
                     }
+                    // Handling periodic BC
+                    u_col[0] = u_col[m_Nx];
+                    u_col[1] = u_col[m_Nx + 1];
+                    u_col[2] = u_col[m_Nx + 2];
+                    u_col[m_Nx + 3] = u_col[3];
+                    u_col[m_Nx + 4] = u_col[4];
+                    u_col[m_Nx + 5] = u_col[5];
 
-                    // Deallocations
-                    delete[] u_col;
-                    delete[] deriv_col;
+                    cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx + 6, m_Nx + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
+                                deriv_col, 1);
+
+                    for (int i = 0; i < m_Nx; ++i)
+                    {
+                        deriv[i * m_Ny + j] = deriv_col[i];
+                    }
                 }
             }
 
-            // Discretisation in y-dir ============================================
+            // Discretisation in y-dir ======================================
             else if (dir == 'y')
             {
                 double py = 1.0 / m_dy;
@@ -284,44 +281,40 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                     A[i * lda + 5] = coeff_y[5]; // original lower diag 2
                     A[i * lda + 6] = coeff_y[6]; // original lower diag 3
                 }
-#pragma omp parallel
+
+                // Temp vector to store the column element of u
+                u_col = new double[m_Ny + 6];
+                // Temp vector to store the column element of deriv
+                deriv_col = new double[m_Ny + 6];
+
+                // BLAS dgbmv and for loop to find deriv
+                for (int i = 0; i < m_Nx; ++i)
                 {
-                    // Temp vector to store the column element of u
-                    double *u_col = new double[m_Ny + 6];
-                    // Temp vector to store the column element of deriv
-                    double *deriv_col = new double[m_Ny + 6];
-
-#pragma omp for
-                    // BLAS dgbmv and for loop to find deriv
-                    for (int i = 0; i < m_Nx; ++i)
+                    for (int j = 0; j < m_Ny; ++j)
                     {
-                        for (int j = 0; j < m_Ny; ++j)
-                        {
-                            u_col[j + 3] = u[i * m_Ny + j];
-                        }
-                        // Handling periodic BC
-                        u_col[0] = u_col[m_Ny];
-                        u_col[1] = u_col[m_Ny + 1];
-                        u_col[2] = u_col[m_Ny + 2];
-                        u_col[m_Ny + 3] = u_col[3];
-                        u_col[m_Ny + 4] = u_col[4];
-                        u_col[m_Ny + 5] = u_col[5];
-
-                        cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny + 6, m_Ny + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
-                                    deriv_col, 1);
-
-                        for (int j = 0; j < m_Ny; ++j)
-                        {
-                            deriv[i * m_Ny + j] = deriv_col[j];
-                        }
+                        u_col[j + 3] = u[i * m_Ny + j];
                     }
+                    // Handling periodic BC
+                    u_col[0] = u_col[m_Ny];
+                    u_col[1] = u_col[m_Ny + 1];
+                    u_col[2] = u_col[m_Ny + 2];
+                    u_col[m_Ny + 3] = u_col[3];
+                    u_col[m_Ny + 4] = u_col[4];
+                    u_col[m_Ny + 5] = u_col[5];
 
-                    // Deallocations
-                    delete[] u_col;
-                    delete[] deriv_col;
+                    cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny + 6, m_Ny + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
+                                deriv_col, 1);
+
+                    for (int j = 0; j < m_Ny; ++j)
+                    {
+                        deriv[i * m_Ny + j] = deriv_col[j];
+                    }
                 }
             }
 
+            // Deallocations
+            delete[] u_col;
+            delete[] deriv_col;
             delete[] A;
         }
     }
