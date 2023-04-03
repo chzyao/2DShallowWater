@@ -1,17 +1,17 @@
 #include "ShallowWater.h"
 #include "Comm.h"
-#include <iostream>
 #include <boost/program_options.hpp>
-#include <cmath>
-#include <iomanip>
-#include <fstream>
 #include <cblas.h>
+#include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <omp.h>
 
 using namespace std;
 namespace po = boost::program_options;
 
-ShallowWater::ShallowWater()
+ShallowWater::ShallowWater() 
 {
 }
 
@@ -20,13 +20,18 @@ void ShallowWater::SetParameters(int argc, char *argv[])
     // Read parameters from command line =========================
     po::options_description options("Available Options.");
     options.add_options()("help", "Display help message")(
-        "dt", po::value<double>(&m_dt)->default_value(DEFAULT_DT), "Time-step to use")(
-        "T", po::value<double>(&m_T)->default_value(DEFAULT_T), "Total integration time")(
-        "Nx", po::value<int>(&m_Nx)->default_value(DEFAULT_NX), "Number of grid points in x")(
-        "Ny", po::value<int>(&m_Ny)->default_value(DEFAULT_NY), "Number of grid points in y")(
+        "dt", po::value<double>(&m_dt)->default_value(DEFAULT_DT),
+        "Time-step to use")("T",
+                            po::value<double>(&m_T)->default_value(DEFAULT_T),
+                            "Total integration time")(
+        "Nx", po::value<int>(&m_Nx)->default_value(DEFAULT_NX),
+        "Number of grid points in x")(
+        "Ny", po::value<int>(&m_Ny)->default_value(DEFAULT_NY),
+        "Number of grid points in y")(
         "ic", po::value<int>(&m_ic)->default_value(DEFAULT_IC),
         "Index of the initial condition to use (1-4)")(
-        "method", po::value<char>(&m_method)->default_value(DEFAULT_METHOD), "Evaluation of f Method ('l': Loop, 'b': BLAS)");
+        "method", po::value<char>(&m_method)->default_value(DEFAULT_METHOD),
+        "Evaluation of f Method ('l': Loop, 'b': BLAS)");
 
     po::variables_map vm;
 
@@ -56,7 +61,6 @@ void ShallowWater::SetParameters(int argc, char *argv[])
     m_dy = 1.0;
 }
 
-
 void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
 {
     // Generate Initial conditions in root rank
@@ -73,22 +77,30 @@ void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
                 m_v[i * m_Ny + j] = 0.0;
                 if (m_ic == 1)
                 {
-                    m_h0[i * m_Ny + j] = 10.0 + exp(-(i * m_dx - 50) * (i * m_dx - 50) / 25.0);
+                    m_h0[i * m_Ny + j] =
+                        10.0 + exp(-(i * m_dx - 50) * (i * m_dx - 50) / 25.0);
                 }
                 else if (m_ic == 2)
                 {
-                    m_h0[i * m_Ny + j] = 10.0 + exp(-(j * m_dy - 50) * (j * m_dy - 50) / 25.0);
+                    m_h0[i * m_Ny + j] =
+                        10.0 + exp(-(j * m_dy - 50) * (j * m_dy - 50) / 25.0);
                 }
                 else if (m_ic == 3)
                 {
-                    m_h0[i * m_Ny + j] = 10.0 + exp(
-                                                    -((i * m_dx - 50) * (i * m_dx - 50) + (j * m_dy - 50) * (j * m_dy - 50)) /
+                    m_h0[i * m_Ny + j] = 10.0 + exp(-((i * m_dx - 50) * (i * 
+                                                       m_dx - 50) +
+                                                      (j * m_dy - 50) * (j * m_dy - 50)) /
                                                     25.0);
                 }
                 else
                 {
-                    m_h0[i * m_Ny + j] = 10.0 + exp(-((i * m_dx - 25) * (i * m_dx - 25) + (j * m_dy - 25) * (j * m_dy - 25)) / 25.0) +
-                                         exp(-((i * m_dx - 75) * (i * m_dx - 75) + (j * m_dy - 75) * (j * m_dy - 75)) / 25.0);
+                    m_h0[i * m_Ny + j] = 10.0 +
+                                         exp(-((i * m_dx - 25) * (i * m_dx - 25) +
+                                               (j * m_dy - 25) * (j * m_dy - 25)) /
+                                             25.0) +
+                                         exp(-((i * m_dx - 75) * (i * m_dx - 75) +
+                                               (j * m_dy - 75) * (j * m_dy - 75)) /
+                                             25.0);
                 }
             }
         }
@@ -98,15 +110,21 @@ void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
     }
 
     // Scatter to each rank
-    MPI_Scatterv(m_u, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Scatterv(m_v, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Scatterv(m_h, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatterv(m_u, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_u_loc,
+                 m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatterv(m_v, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_v_loc,
+                 m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatterv(m_h, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, m_h_loc,
+                 m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
 }
 
-void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, double *deriv, double *deriv_loc, Comm::MPI_Info *mpi_info)
+void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir,
+                                         double *deriv, double *deriv_loc,
+                                         Comm::MPI_Info *mpi_info)
 {
     // Gather results of u
-    MPI_Gatherv(u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, u, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, u, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
     if (mpi_info->m_rank == 0)
     {
@@ -118,7 +136,9 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             {
                 double px = 1.0 / m_dx;
 
-                double coeff_x[7] = {-1.0 / 60.0 * px, 3.0 / 20.0 * px, -3.0 / 4.0 * px, 0.0, 3.0 / 4.0 * px, -3.0 / 20.0 * px, 1.0 / 60.0 * px};
+                double coeff_x[7] = {
+                    -1.0 / 60.0 * px, 3.0 / 20.0 * px, -3.0 / 4.0 * px, 0.0,
+                    3.0 / 4.0 * px, -3.0 / 20.0 * px, 1.0 / 60.0 * px};
 
 #pragma omp parallel for collapse(2)
                 for (int i = 0; i < m_Nx; ++i)
@@ -145,9 +165,12 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                         if (i_plus_3 >= m_Nx)
                             i_plus_3 -= m_Nx;
 
-                        deriv[i * m_Ny + j] =
-                            (coeff_x[0] * u[i_minus_3 * m_Ny + j] + coeff_x[1] * u[i_minus_2 * m_Ny + j] +
-                             coeff_x[2] * u[i_minus_1 * m_Ny + j] + coeff_x[4] * u[i_plus_1 * m_Ny + j] + coeff_x[5] * u[i_plus_2 * m_Ny + j] + coeff_x[6] * u[i_plus_3 * m_Ny + j]);
+                        deriv[i * m_Ny + j] = (coeff_x[0] * u[i_minus_3 * m_Ny + j] +
+                                               coeff_x[1] * u[i_minus_2 * m_Ny + j] +
+                                               coeff_x[2] * u[i_minus_1 * m_Ny + j] +
+                                               coeff_x[4] * u[i_plus_1 * m_Ny + j] +
+                                               coeff_x[5] * u[i_plus_2 * m_Ny + j] +
+                                               coeff_x[6] * u[i_plus_3 * m_Ny + j]);
                     }
                 }
             }
@@ -157,7 +180,9 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             {
                 double py = 1.0 / m_dy;
 
-                double coeff_y[7] = {-1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0, 3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
+                double coeff_y[7] = {
+                    -1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0,
+                    3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
 
 #pragma omp parallel for collapse(2)
                 for (int i = 0; i < m_Nx; ++i)
@@ -185,8 +210,12 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                         if (j_plus_3 >= m_Ny)
                             j_plus_3 -= m_Ny;
 
-                        deriv[i * m_Ny + j] =
-                            (coeff_y[0] * u[i * m_Ny + j_minus_3] + coeff_y[1] * u[i * m_Ny + j_minus_2] + coeff_y[2] * u[i * m_Ny + j_minus_1] + coeff_y[4] * u[i * m_Ny + j_plus_1] + coeff_y[5] * u[i * m_Ny + j_plus_2] + coeff_y[6] * u[i * m_Ny + j_plus_3]);
+                        deriv[i * m_Ny + j] = (coeff_y[0] * u[i * m_Ny + j_minus_3] +
+                                               coeff_y[1] * u[i * m_Ny + j_minus_2] +
+                                               coeff_y[2] * u[i * m_Ny + j_minus_1] +
+                                               coeff_y[4] * u[i * m_Ny + j_plus_1] +
+                                               coeff_y[5] * u[i * m_Ny + j_plus_2] +
+                                               coeff_y[6] * u[i * m_Ny + j_plus_3]);
                     }
                 }
             }
@@ -200,14 +229,20 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
             const int lda = 1 + ku + kl; // leading dimensions
             double *A;                   // Banded Matrix to be filled
 
+            // Note that although it is possible to implement this method with 3 upper
+            // and lower diagonals, it could be miles easier to enforce the periodic
+            // boundary conditions using only 6 superdiagonals. Storage-wise, not much
+            // of a huge difference as it is only 6*lda slots larger
+
             // Discretisation in x-dir =======================
             if (dir == 'x')
             {
                 A = new double[lda * (m_Nx + 6)];
                 double px = 1.0 / m_dx;
                 // coefficient of stencil in x-dir
-                double coeff_x[7] = {1.0 / 60.0 * px, -3.0 / 20.0 * px, 3.0 / 4.0 * px, 0.0,
-                                     -3.0 / 4.0 * px, 3.0 / 20.0 * px, -1.0 / 60.0 * px};
+                double coeff_x[7] = {
+                    1.0 / 60.0 * px, -3.0 / 20.0 * px, 3.0 / 4.0 * px, 0.0,
+                    -3.0 / 4.0 * px, 3.0 / 20.0 * px, -1.0 / 60.0 * px};
 
                 for (int i = 0; i < m_Nx + 6; ++i)
                 {
@@ -243,8 +278,8 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                         u_col[m_Nx + 4] = u_col[4];
                         u_col[m_Nx + 5] = u_col[5];
 
-                        cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx + 6, m_Nx + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
-                                    deriv_col, 1);
+                        cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Nx + 6, m_Nx + 6, kl, ku,
+                                    1.0, A, lda, u_col, 1, 0.0, deriv_col, 1);
 
                         for (int i = 0; i < m_Nx; ++i)
                         {
@@ -265,8 +300,9 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                 A = new double[lda * (m_Ny + 6)];
 
                 // coefficient of stencil in y-dir
-                double coeff_y[7] = {-1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0,
-                                     3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
+                double coeff_y[7] = {
+                    -1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0,
+                    3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
 
                 for (int i = 0; i < m_Ny + 6; ++i)
                 {
@@ -285,7 +321,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                     // Temp vector to store the column element of deriv
                     double *deriv_col = new double[m_Ny + 6];
 
-#pragma omp for 
+#pragma omp for
                     // BLAS dgbmv and for loop to find deriv
                     for (int i = 0; i < m_Nx; ++i)
                     {
@@ -301,8 +337,8 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                         u_col[m_Ny + 4] = u_col[4];
                         u_col[m_Ny + 5] = u_col[5];
 
-                        cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny + 6, m_Ny + 6, kl, ku, 1.0, A, lda, u_col, 1, 0.0,
-                                    deriv_col, 1);
+                        cblas_dgbmv(CblasColMajor, CblasNoTrans, m_Ny + 6, m_Ny + 6, kl, ku,
+                                    1.0, A, lda, u_col, 1, 0.0, deriv_col, 1);
 
                         for (int j = 0; j < m_Ny; ++j)
                         {
@@ -321,10 +357,14 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
     }
 
     // Scatter to each process
-    MPI_Scatterv(deriv, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE, deriv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Scatterv(deriv, mpi_info->sendcounts, mpi_info->displs, MPI_DOUBLE,
+                 deriv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, 0, mpi_info->m_comm);
 }
 
-void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *u_loc, double *v_loc, double *h_loc, double *fu_loc, double *fv_loc, double *fh_loc, Comm::MPI_Info *mpi_info)
+void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *u_loc,
+                              double *v_loc, double *h_loc, double *fu_loc,
+                              double *fv_loc, double *fh_loc,
+                              Comm::MPI_Info *mpi_info)
 {
     double g = 9.81;
 
@@ -377,15 +417,21 @@ void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *u_loc, do
     {
         for (int j = 0; j < m_Ny_loc; ++j)
         {
-            fu_loc[i * m_Ny_loc + j] = -u_loc[i * m_Ny_loc + j] * deriux_loc[i * m_Ny_loc + j] -
-                                       v_loc[i * m_Ny_loc + j] * deriuy_loc[i * m_Ny_loc + j] -
-                                       g * derihx_loc[i * m_Ny_loc + j];
+            fu_loc[i * m_Ny_loc + j] =
+                -u_loc[i * m_Ny_loc + j] * deriux_loc[i * m_Ny_loc + j] -
+                v_loc[i * m_Ny_loc + j] * deriuy_loc[i * m_Ny_loc + j] -
+                g * derihx_loc[i * m_Ny_loc + j];
 
-            fv_loc[i * m_Ny_loc + j] = -u_loc[i * m_Ny_loc + j] * derivx_loc[i * m_Ny_loc + j] -
-                                       v_loc[i * m_Ny_loc + j] * derivy_loc[i * m_Ny_loc + j] -
-                                       g * derihy_loc[i * m_Ny_loc + j];
+            fv_loc[i * m_Ny_loc + j] =
+                -u_loc[i * m_Ny_loc + j] * derivx_loc[i * m_Ny_loc + j] -
+                v_loc[i * m_Ny_loc + j] * derivy_loc[i * m_Ny_loc + j] -
+                g * derihy_loc[i * m_Ny_loc + j];
 
-            fh_loc[i * m_Ny_loc + j] = -h_loc[i * m_Ny_loc + j] * deriux_loc[i * m_Ny_loc + j] - u_loc[i * m_Ny_loc + j] * derihx_loc[i * m_Ny_loc + j] - h_loc[i * m_Ny_loc + j] * derivy_loc[i * m_Ny_loc + j] - v_loc[i * m_Ny_loc + j] * derihy_loc[i * m_Ny_loc + j];
+            fh_loc[i * m_Ny_loc + j] =
+                -h_loc[i * m_Ny_loc + j] * deriux_loc[i * m_Ny_loc + j] -
+                u_loc[i * m_Ny_loc + j] * derihx_loc[i * m_Ny_loc + j] -
+                h_loc[i * m_Ny_loc + j] * derivy_loc[i * m_Ny_loc + j] -
+                v_loc[i * m_Ny_loc + j] * derihy_loc[i * m_Ny_loc + j];
         }
     }
 
@@ -411,7 +457,9 @@ void ShallowWater::Evaluate_f(double *u, double *v, double *h, double *u_loc, do
     delete[] derihy_loc;
 }
 
-void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, double *fu_loc, double *fv_loc, double *fh_loc, Comm::MPI_Info *mpi_info)
+void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc,
+                                   double *fu_loc, double *fv_loc,
+                                   double *fh_loc, Comm::MPI_Info *mpi_info)
 {
     // Solving for u
     double *k1_u = new double[m_Nx * m_Ny_loc];
@@ -451,11 +499,15 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     cblas_dcopy(m_Nx * m_Ny_loc, v_loc, 1, tv_loc, 1);
     cblas_dcopy(m_Nx * m_Ny_loc, h_loc, 1, th_loc, 1);
 
-    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
-    Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc, mpi_info);
+    Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc,
+               mpi_info);
 
     cblas_dcopy(m_Nx * m_Ny_loc, fu_loc, 1, k1_u, 1);
     cblas_dcopy(m_Nx * m_Ny_loc, fv_loc, 1, k1_v, 1);
@@ -472,12 +524,16 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt / 2.0, k1_v, 1, tv_loc, 1);
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt / 2.0, k1_h, 1, th_loc, 1);
 
-    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
     // Evaluate new f
-    Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc, mpi_info);
+    Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc,
+               mpi_info);
 
     cblas_dcopy(m_Nx * m_Ny_loc, fu_loc, 1, k2_u, 1);
     cblas_dcopy(m_Nx * m_Ny_loc, fv_loc, 1, k2_v, 1);
@@ -494,11 +550,15 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt / 2.0, k2_v, 1, tv_loc, 1);
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt / 2.0, k2_h, 1, th_loc, 1);
 
-    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
-    Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc, mpi_info);
+    Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc,
+               mpi_info);
 
     cblas_dcopy(m_Nx * m_Ny_loc, fu_loc, 1, k3_u, 1);
     cblas_dcopy(m_Nx * m_Ny_loc, fv_loc, 1, k3_v, 1);
@@ -515,11 +575,15 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt, k3_v, 1, tv_loc, 1);
     cblas_daxpy(m_Nx * m_Ny_loc, m_dt, k3_h, 1, th_loc, 1);
 
-    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
-    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts, mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tu_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tu, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(tv_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, tv, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
+    MPI_Gatherv(th_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, th, mpi_info->recvcounts,
+                mpi_info->displs, MPI_DOUBLE, 0, mpi_info->m_comm);
 
-    Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc, mpi_info);
+    Evaluate_f(tu, tv, th, tu_loc, tv_loc, th_loc, fu_loc, fv_loc, fh_loc,
+               mpi_info);
 
     cblas_dcopy(m_Nx * m_Ny_loc, fu_loc, 1, k4_u, 1);
     cblas_dcopy(m_Nx * m_Ny_loc, fv_loc, 1, k4_v, 1);
@@ -531,15 +595,18 @@ void ShallowWater::TimeIntegration(double *u_loc, double *v_loc, double *h_loc, 
     {
         for (int j = 0; j < m_Ny_loc; ++j)
         {
-            u_loc[i * m_Ny_loc + j] += m_dt / 6.0 *
-                                       (k1_u[i * m_Ny_loc + j] + 2.0 * k2_u[i * m_Ny_loc + j] +
-                                        2.0 * k3_u[i * m_Ny_loc + j] + k4_u[i * m_Ny_loc + j]);
-            v_loc[i * m_Ny_loc + j] += m_dt / 6.0 *
-                                       (k1_v[i * m_Ny_loc + j] + 2.0 * k2_v[i * m_Ny_loc + j] +
-                                        2.0 * k3_v[i * m_Ny_loc + j] + k4_v[i * m_Ny_loc + j]);
-            h_loc[i * m_Ny_loc + j] += m_dt / 6.0 *
-                                       (k1_h[i * m_Ny_loc + j] + 2.0 * k2_h[i * m_Ny_loc + j] +
-                                        2.0 * k3_h[i * m_Ny_loc + j] + k4_h[i * m_Ny_loc + j]);
+            u_loc[i * m_Ny_loc + j] +=
+                m_dt / 6.0 *
+                (k1_u[i * m_Ny_loc + j] + 2.0 * k2_u[i * m_Ny_loc + j] +
+                 2.0 * k3_u[i * m_Ny_loc + j] + k4_u[i * m_Ny_loc + j]);
+            v_loc[i * m_Ny_loc + j] +=
+                m_dt / 6.0 *
+                (k1_v[i * m_Ny_loc + j] + 2.0 * k2_v[i * m_Ny_loc + j] +
+                 2.0 * k3_v[i * m_Ny_loc + j] + k4_v[i * m_Ny_loc + j]);
+            h_loc[i * m_Ny_loc + j] +=
+                m_dt / 6.0 *
+                (k1_h[i * m_Ny_loc + j] + 2.0 * k2_h[i * m_Ny_loc + j] +
+                 2.0 * k3_h[i * m_Ny_loc + j] + k4_h[i * m_Ny_loc + j]);
         }
     }
 
@@ -611,14 +678,18 @@ void ShallowWater::Solve(int argc, char *argv[])
     double time = 0.0; // start time
     while (time <= m_T)
     {
-        TimeIntegration(m_u_loc, m_v_loc, m_h_loc, fu_loc, fv_loc, fh_loc, &mpi_info);
+        TimeIntegration(m_u_loc, m_v_loc, m_h_loc, fu_loc, fv_loc, fh_loc,
+                        &mpi_info);
         time += m_dt;
     }
 
     // Gather to global solution fields
-    MPI_Gatherv(m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_u, mpi_info.recvcounts, mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
-    MPI_Gatherv(m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_v, mpi_info.recvcounts, mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
-    MPI_Gatherv(m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_h, mpi_info.recvcounts, mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
+    MPI_Gatherv(m_u_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_u, mpi_info.recvcounts,
+                mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
+    MPI_Gatherv(m_v_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_v, mpi_info.recvcounts,
+                mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
+    MPI_Gatherv(m_h_loc, m_Nx * m_Ny_loc, MPI_DOUBLE, m_h, mpi_info.recvcounts,
+                mpi_info.displs, MPI_DOUBLE, 0, mpi_info.m_comm);
 
     // ======================================================
     // Write to file
@@ -632,14 +703,16 @@ void ShallowWater::Solve(int argc, char *argv[])
         {
             for (int i = 0; i < m_Nx; ++i)
             {
-                vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Ny + j] << setw(15) << m_v[i * m_Ny + j] << setw(15) << m_h[i * m_Ny + j] << endl;
+                vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15)
+                     << m_u[i * m_Ny + j] << setw(15) << m_v[i * m_Ny + j] << setw(15)
+                     << m_h[i * m_Ny + j] << endl;
             }
             vOut << endl;
         }
 
         if (m_method == 'l')
         {
-            cout << "Evaluated using loop-based approach" << endl; 
+            cout << "Evaluated using loop-based approach" << endl;
         }
         else if (m_method == 'b')
         {
@@ -669,6 +742,6 @@ void ShallowWater::Solve(int argc, char *argv[])
     MPI_Finalize();
 }
 
-ShallowWater::~ShallowWater()
+ShallowWater::~ShallowWater() 
 {
 }
