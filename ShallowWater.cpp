@@ -62,7 +62,8 @@ void ShallowWater::SetInitialConditions(Comm::MPI_Info *mpi_info)
     // Generate Initial conditions in root rank
     if (mpi_info->m_rank == 0)
     {
-#pragma omp parallel for
+
+#pragma omp parallel for collapse(2)
         for (int i = 0; i < m_Nx; ++i)
         {
             for (int j = 0; j < m_Ny; ++j)
@@ -119,7 +120,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
 
                 double coeff_x[7] = {-1.0 / 60.0 * px, 3.0 / 20.0 * px, -3.0 / 4.0 * px, 0.0, 3.0 / 4.0 * px, -3.0 / 20.0 * px, 1.0 / 60.0 * px};
 
-#pragma omp parallel for
+#pragma omp parallel for collapse(2)
                 for (int i = 0; i < m_Nx; ++i)
                 {
                     for (int j = 0; j < m_Ny; ++j)
@@ -158,7 +159,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
 
                 double coeff_y[7] = {-1.0 / 60.0 * py, 3.0 / 20.0 * py, -3.0 / 4.0 * py, 0.0, 3.0 / 4.0 * py, -3.0 / 20.0 * py, 1.0 / 60.0 * py};
 
-#pragma omp parallel for
+#pragma omp parallel for collapse(2)
                 for (int i = 0; i < m_Nx; ++i)
                 {
 
@@ -284,7 +285,7 @@ void ShallowWater::SpatialDiscretisation(double *u, double *u_loc, char dir, dou
                     // Temp vector to store the column element of deriv
                     double *deriv_col = new double[m_Ny + 6];
 
-#pragma omp for
+#pragma omp for 
                     // BLAS dgbmv and for loop to find deriv
                     for (int i = 0; i < m_Nx; ++i)
                     {
@@ -634,6 +635,15 @@ void ShallowWater::Solve(int argc, char *argv[])
                 vOut << setw(15) << i * m_dx << setw(15) << j * m_dy << setw(15) << m_u[i * m_Ny + j] << setw(15) << m_v[i * m_Ny + j] << setw(15) << m_h[i * m_Ny + j] << endl;
             }
             vOut << endl;
+        }
+
+        if (m_method == 'l')
+        {
+            cout << "Evaluated using loop-based approach" << endl; 
+        }
+        else if (m_method == 'b')
+        {
+            cout << "Evaluated using BLAS-based approach" << endl;
         }
     }
 
