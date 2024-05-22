@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "/opt/homebrew/Cellar/openblas/0.3.21/include",
+                "/opt/homebrew/Cellar/boost/1.81.0_1/include",
+                "/opt/homebrew/Cellar/open-mpi/4.1.4_2/include"
+            ],
+            "defines": [],
+            "macFrameworkPath": [
+                "/Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk/System/Library/Frameworks"
+            ],
+            "compilerPath": "/opt/homebrew/opt/llvm/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "macos-clang-arm64"
+        }
+    ],
+    "version": 4
+}
