@@ -1,11 +1,14 @@
+/**
+ * @file serial.cpp
+ * @author Chris (chris.yao20@imperial.ac.uk)
+ */
+
 #include <boost/program_options.hpp>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-
-#include "ShallowWater.h"
-#include "cblas.h"
+#include <cblas.h>
 
 using namespace std;
 namespace po = boost::program_options;
@@ -235,57 +238,65 @@ void Evaluate_fh(double *u, double *v, double *h, int Nx, int Ny,
     delete[] hv;
 }
 
-void Evaluate_f_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
+void Evaluate_fu_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
 {
     double g = 9.81;
-
-    // Banded matrix specs
-    const int Kl = 3; // mumber of  subdiags
-    const int Ku = 3; // number of superdiags
-    const int lda = 1 + Kl + Ku;
-
-    // Spatial Discretisations ==========================================
     double *deriux = new double[Nx * Ny];
     double *deriuy = new double[Nx * Ny];
     double *derihx = new double[Nx * Ny];
 
+    SpatialDiscretisation(u, Nx, Ny, dx, dy, 'x', deriux);
+    SpatialDiscretisation(u, Nx, Ny, dx, dy, 'y', deriuy);
+    SpatialDiscretisation(h, Nx, Ny, dx, dy, 'x', derihx);
+
+    cblas_ddot(Nx * Ny, u, 1, deriux, 1);
+    cblas_daxpy(Nx * Ny, -1.0, deriux, 1, f, 1);
+
+    cblas_ddot(Nx * Ny, u, 1, deriuy, 1);
+    cblas_daxpy(Nx * Ny, -1.0, deriuy, 1, f, 1);
+
+    cblas_ddot(Nx * Ny, h, 1, derihx, 1);
+    cblas_daxpy(Nx * Ny, -1.0, derihx, 1, f, 1);
+}
+
+void Evaluate_fv_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
+{
+    double g = 9.81;
     double *derivx = new double[Nx * Ny];
     double *derivy = new double[Nx * Ny];
     double *derihy = new double[Nx * Ny];
 
-    SpatialDiscretisation_BLAS(u, Nx, Ny, dx, dy, 'x', deriux);
-    SpatialDiscretisation_BLAS(u, Nx, Ny, dx, dy, 'y', deriuy);
-    SpatialDiscretisation_BLAS(v, Nx, Ny, dx, dy, 'x', derivx);
-    SpatialDiscretisation_BLAS(v, Nx, Ny, dx, dy, 'y', derivy);
-    SpatialDiscretisation_BLAS(h, Nx, Ny, dx, dy, 'x', derihx);
-    SpatialDiscretisation_BLAS(h, Nx, Ny, dx, dy, 'y', derihy);
+    SpatialDiscretisation(v, Nx, Ny, dx, dy, 'x', derivx);
+    SpatialDiscretisation(v, Nx, Ny, dx, dy, 'y', derivy);
+    SpatialDiscretisation(h, Nx, Ny, dx, dy, 'y', derihy);
 
-    // Evaluation of fu =================================================
-    for (int j = 0; j < Nx; ++j)
-    {
-        
-    }
+    cblas_ddot(Nx * Ny, u, 1, derivx, 1);
+    cblas_daxpy(Nx * Ny, -1.0, derivx, 1, f, 1);
 
+    cblas_ddot(Nx * Ny, u, 1, derivy, 1);
+    cblas_daxpy(Nx * Ny, -1.0, derivy, 1, f, 1);
 
-    // Evaluation of fv =================================================
+    cblas_ddot(Nx * Ny, h, 1, derihy, 1);
+    cblas_daxpy(Nx * Ny, -1.0, derihy, 1, f, 1);
+}
 
+void Evaluate_fh_BLAS(double *u, double *v, double *h, int Nx, int Ny, double dx, double dy, double *f)
+{
+    double *derihux = new double[Nx * Ny];
+    double *derihvy = new double[Nx * Ny];
+    double *hu = new double[Nx * Ny];
+    double *hv = new double[Nx * Ny];
 
+    SpatialDiscretisation(hu, Nx, Ny, dx, dy, 'x', derihux);
+    SpatialDiscretisation(hv, Nx, Ny, dx, dy, 'y', derihvy);
 
+    cblas_ddot(Nx * Ny, h, 1, u, 1);
+    cblas_dcopy(Nx * Ny, u, 1, hu, 1);
+    cblas_daxpy(Nx * Ny, -1.0, hu, 1, f, 1);
 
-    // Evaluation of fh =================================================
-
-
-
-
-
-
-    // Deallocations
-    delete[] deriux;
-    delete[] deriuy;
-    delete[] derihx;
-    delete[] derivx;
-    delete[] derivy;
-    delete[] derihy;
+    cblas_ddot(Nx * Ny, h, 1, v, 1);
+    cblas_dcopy(Nx * Ny, u, 1, hv, 1);
+    cblas_daxpy(Nx * Ny, -1.0, hv, 1, f, 1);
 }
 
 void TimeIntegration(double *u, double *v, double *h, int Nx, int Ny,
@@ -497,9 +508,6 @@ int main(int argc, char *argv[])
     double *fu = new double[Nx * Ny];
     double *fv = new double[Nx * Ny];
     double *fh = new double[Nx * Ny];
-    // Evaluate_fu_BLAS(u, v, h, Nx, Ny, dx, dy, fu);
-    // Evaluate_fv_BLAS(u, v, h, Nx, Ny, dx, dy, fv);
-    // Evaluate_fh_BLAS(u, v, h, Nx, Ny, dx, dy, fh);
 
     // ======================================================
     // 4th order RK Time Integrations
@@ -511,18 +519,6 @@ int main(int argc, char *argv[])
         TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
         time += dt;
     }
-
-    // for (int i = 0; i < 10; ++i)
-    // {
-    //     TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, T, fu, fv, fh);
-    // }
-
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
-    // TimeIntegration(u, v, h, Nx, Ny, dx, dy, dt, fu, fv, fh);
 
     // ======================================================
     // Write to file

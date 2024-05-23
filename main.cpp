@@ -1,3 +1,8 @@
+/**
+ * @file main.cpp
+ * @author Chris Ziyi Yao (chris.yao20@imperial.ac.uk)
+ */
+
 #include <boost/program_options.hpp>
 #include <cmath>
 #include <fstream>
