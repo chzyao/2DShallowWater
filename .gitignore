@@ -16,7 +16,13 @@ Makefile
 *.dll
 *.so
 *.dylib
+*.bin
+*.out
 
 # Ignore other common temporary files
 *~
 .DS_Store
+
+# Ignore result files in the serial solver
+output.txt
+SerialSolver/serial
