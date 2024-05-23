@@ -1,5 +1,8 @@
 # 2DShallowWater
-HPC coursework 2023
+
+Updates in progress.
+
+This is my HPC project written in March 2023.
 
 This code solves the simplified 2D Shallow Water Equation using MPI and OpenMP.
 
