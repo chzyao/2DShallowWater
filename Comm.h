@@ -1,3 +1,9 @@
+/**
+ * @file Comm.h
+ * @author Chris (chris.yao20@imperial.ac.uk)
+ * @version Initial version uploaded in March 2023. Last revised in May 2024.
+ */
+
 #ifndef COMM_H
 #define COMM_H
 

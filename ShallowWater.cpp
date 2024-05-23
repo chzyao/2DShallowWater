@@ -1,3 +1,9 @@
+/**
+ * @file ShallowWater.cpp
+ * @author Chris (chris.yao20@imperial.ac.uk)
+ * @version Initial version uploaded in March 2023. Last revised in May 2024.
+ */
+
 #include "ShallowWater.h"
 #include "Comm.h"
 #include <boost/program_options.hpp>
